@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Weekmenu</title>
+  <meta name="description" content="Weekmenu voor het avondeten met boodschappenlijst">
+  <meta name="theme-color" content="#2f6b4f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Weekmenu">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="back" id="back" hidden aria-label="Terug">‹ Terug</button>
+    <h1 id="title">Weekmenu</h1>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <nav class="tabbar" aria-label="Hoofdmenu">
+    <a href="#/week" data-tab="week"><span class="ico" aria-hidden="true">📅</span>Week</a>
+    <a href="#/lijst" data-tab="lijst"><span class="ico" aria-hidden="true">🛒</span>Boodschappen</a>
+    <a href="#/recepten" data-tab="recepten"><span class="ico" aria-hidden="true">📖</span>Recepten</a>
+    <a href="#/instellingen" data-tab="instellingen"><span class="ico" aria-hidden="true">⚙️</span>Instellingen</a>
+  </nav>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="recipes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
