@@ -20,6 +20,7 @@ Draait volledig op je telefoon: geen server, geen account. Gegevens staan in de 
 | `recipes.js` | De 16 recepten, het rotatieschema (4 weken) en de kookmomenten |
 | `app.js` | De app zelf |
 | `style.css` | Opmaak (licht en donker) |
+| `keuken.svg` | Geanimeerde illustratie bovenaan het weekscherm |
 | `index.html`, `manifest.webmanifest`, `sw.js`, `*.png` | PWA-schil, iconen en offline-werking |
 
 ## Online zetten met GitHub Pages (zonder git)
@@ -27,7 +28,7 @@ Draait volledig op je telefoon: geen server, geen account. Gegevens staan in de 
 1. Log in op [github.com](https://github.com) en maak een nieuwe repository, bijvoorbeeld `weekmenu`.
    Kies **Public** (GitHub Pages is gratis voor publieke repositories) en vink niets extra aan.
 2. Klik op **uploading an existing file** en sleep deze bestanden en mappen erin:
-   `index.html`, `app.js`, `recipes.js`, `style.css`, `sw.js`, `manifest.webmanifest`, `README.md`,
+   `index.html`, `app.js`, `recipes.js`, `style.css`, `sw.js`, `manifest.webmanifest`, `README.md`, `keuken.svg`,
    `icon-192.png`, `icon-512.png` en `apple-touch-icon.png`. Mappen hoeven niet mee. Klik op **Commit changes**.
 3. Ga naar **Settings → Pages**. Kies bij *Source* **Deploy from a branch**, branch **main**, map **/ (root)**, en klik op **Save**.
 4. Na een minuutje staat de app op `https://<jouw-gebruikersnaam>.github.io/weekmenu/`.

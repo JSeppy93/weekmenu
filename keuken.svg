@@ -1,0 +1,343 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="150 62 640 424" role="img" aria-label="Illustratie van Jeroen die kookt in zijn keuken">
+  <defs>
+    <style>
+      /* Rustige animaties: opstijgende damp, lichte roerbeweging, af en toe knipperen */
+      .damp path { opacity: .5; animation: damp 4.2s ease-in-out infinite; }
+      .damp path:nth-child(2) { animation-delay: -1.4s; }
+      .damp path:nth-child(3) { animation-delay: -2.8s; }
+      .damp-pan path { animation-name: damp-licht; animation-duration: 5s; }
+      .damp-pan path:nth-child(2) { animation-delay: -2.5s; }
+      @keyframes damp {
+        0% { opacity: 0; transform: translateY(9px); }
+        30% { opacity: .65; }
+        100% { opacity: 0; transform: translateY(-16px); }
+      }
+      @keyframes damp-licht {
+        0% { opacity: 0; transform: translateY(6px); }
+        35% { opacity: .4; }
+        100% { opacity: 0; transform: translateY(-12px); }
+      }
+      .roer { animation: roer 2.6s ease-in-out infinite alternate; }
+      @keyframes roer {
+        from { transform: translate(446px, 316px) rotate(-2.5deg) translate(-446px, -316px); }
+        to { transform: translate(446px, 316px) rotate(2.5deg) translate(-446px, -316px); }
+      }
+      .knipper { animation: knipper 5.5s infinite; }
+      @keyframes knipper {
+        0%, 93%, 100% { transform: translate(0, 206px) scaleY(1) translate(0, -206px); }
+        96% { transform: translate(0, 206px) scaleY(.1) translate(0, -206px); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .damp path, .roer, .knipper { animation: none; }
+      }
+    </style>
+    <!-- Tegelwand: geneste L-vormen, per tegel een kwartslag gedraaid -->
+    <pattern id="tegel" width="36" height="36" patternUnits="userSpaceOnUse" x="415" y="150">
+      <rect width="36" height="36" fill="#2f4b3e"/>
+      <!-- vier tegels als molentje: de hoek van elke L wijst een kwartslag verder -->
+      <g fill="none" stroke="#e6dabf" stroke-width="3">
+        <g transform="rotate(90 9 9)">
+          <path d="M1.5 18V1.5H18M7.5 18V7.5H18M13.5 18V13.5H18"/>
+        </g>
+        <g transform="translate(18 0) rotate(180 9 9)">
+          <path d="M1.5 18V1.5H18M7.5 18V7.5H18M13.5 18V13.5H18"/>
+        </g>
+        <g transform="translate(18 18) rotate(270 9 9)">
+          <path d="M1.5 18V1.5H18M7.5 18V7.5H18M13.5 18V13.5H18"/>
+        </g>
+        <g transform="translate(0 18)">
+          <path d="M1.5 18V1.5H18M7.5 18V7.5H18M13.5 18V13.5H18"/>
+        </g>
+      </g>
+    </pattern>
+    <!-- Visgraatvloer -->
+    <pattern id="visgraat" width="26" height="13" patternUnits="userSpaceOnUse">
+      <rect width="26" height="13" fill="#dcc29c"/>
+      <path d="M0 13L13 0L26 13" fill="none" stroke="#c7a67c" stroke-width="1.3"/>
+    </pattern>
+    <radialGradient id="gloed" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff8dc" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#fff8dc" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="lichtval" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3c9" stop-opacity=".2"/>
+      <stop offset="1" stop-color="#fff3c9" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="kader"><rect width="800" height="500"/></clipPath>
+  </defs>
+
+  <g clip-path="url(#kader)">
+    <!-- ================= Ruimte ================= -->
+    <rect width="800" height="500" fill="#efdfc3"/>
+    <rect width="800" height="132" fill="#f7edd9"/>
+    <rect y="130" width="800" height="3" fill="#e4d3b4"/>
+    <!-- zijwand rechts, iets lichter -->
+    <rect x="628" y="133" width="172" height="320" fill="#f3e6cd"/>
+
+    <!-- inbouwspots -->
+    <g>
+      <ellipse cx="150" cy="50" rx="30" ry="13" fill="url(#gloed)"/><ellipse cx="150" cy="50" rx="11" ry="4.5" fill="#fffdf3"/>
+      <ellipse cx="198" cy="50" rx="30" ry="13" fill="url(#gloed)"/><ellipse cx="198" cy="50" rx="11" ry="4.5" fill="#fffdf3"/>
+      <ellipse cx="690" cy="42" rx="30" ry="13" fill="url(#gloed)"/><ellipse cx="690" cy="42" rx="11" ry="4.5" fill="#fffdf3"/>
+      <ellipse cx="742" cy="42" rx="30" ry="13" fill="url(#gloed)"/><ellipse cx="742" cy="42" rx="11" ry="4.5" fill="#fffdf3"/>
+      <ellipse cx="290" cy="119" rx="18" ry="7" fill="url(#gloed)"/><ellipse cx="290" cy="119" rx="7" ry="2.8" fill="#fffdf3"/>
+      <ellipse cx="318" cy="119" rx="18" ry="7" fill="url(#gloed)"/><ellipse cx="318" cy="119" rx="7" ry="2.8" fill="#fffdf3"/>
+      <ellipse cx="548" cy="121" rx="18" ry="7" fill="url(#gloed)"/><ellipse cx="548" cy="121" rx="7" ry="2.8" fill="#fffdf3"/>
+      <ellipse cx="576" cy="121" rx="18" ry="7" fill="url(#gloed)"/><ellipse cx="576" cy="121" rx="7" ry="2.8" fill="#fffdf3"/>
+    </g>
+
+    <!-- deur links -->
+    <rect x="8" y="176" width="122" height="277" fill="#f6eedd"/>
+    <rect x="16" y="184" width="106" height="269" fill="#fbf5e8"/>
+    <rect x="30" y="200" width="78" height="104" fill="none" stroke="#e7dcc6" stroke-width="2"/>
+    <rect x="30" y="322" width="78" height="112" fill="none" stroke="#e7dcc6" stroke-width="2"/>
+    <rect x="96" y="330" width="16" height="3.5" rx="1.75" fill="#b8935a"/>
+    <circle cx="112" cy="332" r="4" fill="#b8935a"/>
+    <!-- plint -->
+    <rect x="130" y="438" width="46" height="15" fill="#f6eedd"/>
+
+    <!-- vloer -->
+    <rect x="0" y="453" width="800" height="47" fill="url(#visgraat)"/>
+
+    <!-- ================= Walnoten kastenwand ================= -->
+    <rect x="175" y="140" width="240" height="313" fill="#6d4428"/>
+    <rect x="255" y="140" width="80" height="313" fill="#744a2c"/>
+    <!-- naden -->
+    <g stroke="#4c2d19" stroke-width="2">
+      <line x1="255" y1="140" x2="255" y2="453"/>
+      <line x1="335" y1="140" x2="335" y2="453"/>
+      <line x1="175" y1="192" x2="415" y2="192"/>
+      <line x1="255" y1="250" x2="335" y2="250"/>
+      <line x1="175" y1="372" x2="255" y2="372"/>
+    </g>
+    <rect x="175" y="447" width="240" height="6" fill="#3c2414"/>
+    <!-- houtnerf, heel subtiel -->
+    <g stroke="#7d5234" stroke-width="1" opacity=".55">
+      <line x1="196" y1="200" x2="196" y2="365"/><line x1="224" y1="200" x2="224" y2="365"/>
+      <line x1="356" y1="200" x2="356" y2="365"/><line x1="388" y1="200" x2="388" y2="365"/>
+      <line x1="280" y1="148" x2="280" y2="186"/><line x1="310" y1="198" x2="310" y2="244"/>
+    </g>
+    <!-- knoppen -->
+    <g fill="#8d5e3a">
+      <circle cx="246" cy="300" r="3.6"/><circle cx="344" cy="300" r="3.6"/>
+      <circle cx="322" cy="236" r="3.6"/><circle cx="246" cy="412" r="3.6"/>
+    </g>
+    <!-- twee ovens -->
+    <rect x="258" y="258" width="74" height="126" fill="#141416"/>
+    <rect x="262" y="262" width="66" height="54" rx="2" fill="#222226"/>
+    <rect x="262" y="322" width="66" height="54" rx="2" fill="#222226"/>
+    <rect x="268" y="268" width="54" height="3" rx="1.5" fill="#6f7076"/>
+    <rect x="268" y="328" width="54" height="3" rx="1.5" fill="#6f7076"/>
+    <rect x="270" y="278" width="50" height="32" rx="2" fill="#2e2e33"/>
+    <rect x="270" y="338" width="50" height="32" rx="2" fill="#2e2e33"/>
+    <path d="M274 306L290 280H298L282 306Z" fill="#3b3b42" opacity=".7"/>
+    <path d="M274 366L290 340H298L282 366Z" fill="#3b3b42" opacity=".7"/>
+    <circle cx="295" cy="273.5" r="1.3" fill="#7fb8ff"/><circle cx="295" cy="333.5" r="1.3" fill="#7fb8ff"/>
+
+    <!-- ================= Tegelwand en achterblad ================= -->
+    <rect x="415" y="150" width="213" height="190" fill="url(#tegel)"/>
+    <rect x="415" y="150" width="213" height="190" fill="#2b2a1c" opacity=".12"/>
+    <!-- onderkastjes en blad -->
+    <rect x="415" y="346" width="243" height="107" fill="#5f3b22"/>
+    <g stroke="#4c2d19" stroke-width="2"><line x1="496" y1="346" x2="496" y2="453"/><line x1="577" y1="346" x2="577" y2="453"/></g>
+    <rect x="413" y="338" width="247" height="9" rx="1.5" fill="#f1ebdf"/>
+    <rect x="413" y="345" width="247" height="2" fill="#d9d0c0"/>
+
+    <!-- espressomachine -->
+    <g transform="translate(-5 0)">
+      <rect x="421" y="294" width="27" height="44" rx="3" fill="#19191b"/>
+      <rect x="424" y="299" width="21" height="10" rx="1.5" fill="#3a3a3f"/>
+      <rect x="428" y="315" width="13" height="4" rx="1" fill="#8b8c92"/>
+      <rect x="431" y="319" width="7" height="6" fill="#55565b"/>
+      <rect x="424" y="334" width="21" height="4" fill="#2c2c30"/>
+    </g>
+    <!-- wijnflessen -->
+    <g transform="translate(13 0)">
+      <path d="M592 338V312Q592 307 594.5 305V297H598.5V305Q601 307 601 312V338Z" fill="#22382d"/>
+      <path d="M604 338V314Q604 309 606.5 307V300H610.5V307Q613 309 613 314V338Z" fill="#3b2a22"/>
+      <rect x="592" y="320" width="9" height="9" fill="#e9dfc8"/><rect x="604" y="321" width="9" height="8" fill="#e2cfa6"/>
+    </g>
+    <!-- vaas met droogbloemen -->
+    <g transform="translate(8 0)">
+    <g stroke-linecap="round" fill="none" stroke-width="1.6">
+      <path d="M633 314Q628 290 618 274" stroke="#8a7a4e"/><path d="M634 314Q634 288 632 266" stroke="#8a7a4e"/>
+      <path d="M636 314Q642 292 650 280" stroke="#8a7a4e"/><path d="M635 314Q640 296 644 262" stroke="#9a6b4a"/>
+      <path d="M633 314Q624 300 612 294" stroke="#9a6b4a"/>
+    </g>
+    <circle cx="617" cy="272" r="6" fill="#c8804f"/><circle cx="632" cy="263" r="5" fill="#e0b56a"/>
+    <circle cx="651" cy="278" r="5.5" fill="#d99a8c"/><circle cx="644" cy="259" r="4.5" fill="#b9684a"/>
+    <circle cx="611" cy="293" r="4" fill="#e0b56a"/><circle cx="625" cy="284" r="3.2" fill="#d99a8c"/>
+    <path d="M626 338Q621 326 628 316Q626 311 630 310H640Q644 311 642 316Q649 326 644 338Z" fill="#f8f3e8"/>
+    <path d="M639 316Q645 326 641 338H644Q649 326 642 316Z" fill="#e3dccb"/>
+    </g>
+
+    <!-- stopcontact rechts -->
+    <rect x="762" y="300" width="22" height="13" rx="2" fill="#fbf6ea" stroke="#e2d6bf"/>
+
+    <!-- ================= Railverlichting ================= -->
+    <rect x="325" y="76" width="420" height="5" rx="1" fill="#fdf9ee"/>
+    <rect x="325" y="80" width="420" height="1.5" fill="#dccfb3"/>
+    <g>
+      <path d="M500 112L470 250H556L524 112Z" fill="url(#lichtval)"/>
+      <path d="M594 112L574 250H654L618 112Z" fill="url(#lichtval)"/>
+      <g fill="#fdfaf1" stroke="#dccfb3" stroke-width="1">
+        <rect x="403" y="80" width="5" height="8"/><rect x="398" y="87" width="15" height="24" rx="3" transform="rotate(6 405 99)"/>
+        <rect x="509" y="80" width="5" height="8"/><rect x="504" y="87" width="15" height="24" rx="3"/>
+        <rect x="603" y="80" width="5" height="8"/><rect x="598" y="87" width="15" height="24" rx="3" transform="rotate(-6 605 99)"/>
+      </g>
+      <ellipse cx="404" cy="111" rx="6.5" ry="2.6" fill="#fff0b8"/><ellipse cx="511.500" cy="111" rx="6.5" ry="2.6" fill="#fff0b8"/><ellipse cx="606.500" cy="111" rx="6.5" ry="2.6" fill="#fff0b8"/>
+    </g>
+
+    <!-- stoom uit de pan links (komt later in beweging) -->
+    <g id="stoom" class="damp" transform="translate(6 0)" fill="none" stroke="#fff7ea" stroke-width="3.2" stroke-linecap="round">
+      <path d="M376 346c-7-10 7-17 0-27s7-17 0-27"/>
+      <path d="M388 342c-7-11 7-18 0-29s7-18 0-29"/>
+      <path d="M400 346c-7-10 7-17 0-27s7-17 0-27"/>
+    </g>
+
+    <!-- ================= Jeroen ================= -->
+    <g id="jeroen" transform="matrix(.92 0 0 .92 50 30.72)">
+      <!-- overhemd: lichtblauw oxford, lange mouwen -->
+      <path d="M458 271C458 258 467 252 479 248L491 243H509L521 248C533 252 542 258 542 271L545 384H455Z" fill="#c8daee"/>
+      <path d="M533 253C539 256 542 262 542 271L545 384H536Z" fill="#aec6e1" opacity=".65"/>
+      <path d="M467 253C461 256 458 262 458 271L455 384H463Z" fill="#dce8f5" opacity=".8"/>
+      <path d="M496.500 262V286M503.500 262V286" stroke="#b4cbe4" stroke-width="1.100"/>
+      <circle cx="500" cy="274" r="2" fill="#f7fafd" stroke="#a9c1dd" stroke-width=".7"/>
+      <!-- hals -->
+      <path d="M491 224H509V246L500 258L491 246Z" fill="#e3b494"/>
+      <path d="M491 232Q500 240 509 232V224H491Z" fill="#c9977a" opacity=".75"/>
+
+      <!-- kookschort: donkerblauw met leren halsband -->
+      <path d="M489.500 247L480 285M510.500 247L520 285" fill="none" stroke="#8a5a36" stroke-width="3.600" stroke-linecap="round"/>
+      <path d="M478 283H522L526 318Q529 338 544 346L545 384H455L456 346Q471 338 474 318Z" fill="#2c3b57"/>
+      <path d="M522 283L526 318Q529 338 544 346L545 384H537L536 350Q522 341 519 320L516 283Z" fill="#222f47" opacity=".7"/>
+      <path d="M478 288.500H522" stroke="#40527a" stroke-width="1.400"/>
+      <path d="M489 302H511V316Q500 321 489 316Z" fill="none" stroke="#40527a" stroke-width="1.400"/>
+      <circle cx="480.500" cy="286" r="1.800" fill="#c9a36a"/><circle cx="519.500" cy="286" r="1.800" fill="#c9a36a"/>
+
+      <!-- kraag met knoopjes -->
+      <path d="M491 237L481 247L495 265L500 256Z" fill="#dfeaf6" stroke="#a9c1dd" stroke-width="1"/>
+      <path d="M509 237L519 247L505 265L500 256Z" fill="#dfeaf6" stroke="#a9c1dd" stroke-width="1"/>
+      <circle cx="493" cy="260" r="1.100" fill="#f7fafd" stroke="#a9c1dd" stroke-width=".5"/><circle cx="507" cy="260" r="1.100" fill="#f7fafd" stroke="#a9c1dd" stroke-width=".5"/>
+
+      <!-- hoofd (iets kleiner voor betere verhoudingen) -->
+      <g transform="translate(500 240) scale(.86) translate(-500 -240)">
+        <ellipse cx="478" cy="209" rx="3.800" ry="6.500" fill="#e9bb9b"/>
+        <ellipse cx="522" cy="209" rx="3.800" ry="6.500" fill="#e9bb9b"/>
+        <path d="M479.500 199C479.500 184 489 176 500 176S520.500 184 520.500 199V212C520.500 227 511 237.500 500 237.500S479.500 227 479.500 212Z" fill="#f2cbac"/>
+        <!-- stoppelbaard -->
+        <path d="M480 211C481 228 490 237.500 500 237.500S519 228 520 211C518 221 514 226 510 228C507 224 503 222.500 500 222.500S493 224 490 228C486 226 482 221 480 211Z" fill="#b08062" opacity=".26"/>
+        <path d="M490 219.500Q500 216 510 219.500Q500 218 490 219.500Z" fill="#b08062" opacity=".3"/>
+        <!-- haar: donkerbruin, zijkanten kort, bovenop naar achteren gekamd -->
+        <path d="M477.500 206C474 190 476 173 487 165C497 158 515 157.500 523 166C530 174 527.500 191 523 206C522.500 198 521.500 192 519 187C516.500 184 512.500 182.500 508.500 183.500C501 180 492.500 181.500 487.500 186C483 190.500 480 197.500 477.500 206Z" fill="#553726"/>
+        <path d="M485.500 184C484 174 490 164.500 501 162C510 160 518 163 522 168.500C514 165.500 504 166.500 497 171.500C491 175.500 487.500 180 485.500 184Z" fill="#6c4a33"/>
+        <path d="M489 177C495 169.500 506 166 517 168M492.500 181C498 174.500 508 171.500 519.500 173.500" fill="none" stroke="#83604a" stroke-width="1.300" stroke-linecap="round" opacity=".75"/>
+        <!-- wenkbrauwen, ogen (knipperen) -->
+        <path d="M485.500 200Q491 197 496.500 199.200" fill="none" stroke="#553726" stroke-width="2" stroke-linecap="round"/>
+        <path d="M503.500 199.200Q509 197 514.500 200" fill="none" stroke="#553726" stroke-width="2" stroke-linecap="round"/>
+        <g class="knipper">
+          <ellipse cx="491" cy="206" rx="2.300" ry="2.600" fill="#2a211b"/><ellipse cx="509" cy="206" rx="2.300" ry="2.600" fill="#2a211b"/>
+          <circle cx="491.800" cy="205.200" r=".7" fill="#fff"/><circle cx="509.800" cy="205.200" r=".7" fill="#fff"/>
+        </g>
+        <path d="M487 209.500q4 1.500 8 0M505 209.500q4 1.500 8 0" fill="none" stroke="#dba888" stroke-width="1" stroke-linecap="round"/>
+        <!-- neus, lach, blosjes -->
+        <path d="M500 208C498.500 212.500 497.300 215.500 498.800 217C500.300 218.200 502.500 217.800 503.200 216.800" fill="none" stroke="#cf9a7b" stroke-width="1.600" stroke-linecap="round"/>
+        <path d="M489 221.500Q500 225.500 511 221.500Q500 233.500 489 221.500Z" fill="#fff" stroke="#9c4f3a" stroke-width="1.200" stroke-linejoin="round"/>
+        <circle cx="485.500" cy="216" r="4" fill="#ee9f86" opacity=".3"/><circle cx="514.500" cy="216" r="4" fill="#ee9f86" opacity=".3"/>
+      </g>
+
+      <!-- arm links in beeld: bovenarm vast, onderarm roert mee -->
+      <path d="M461 272L447 316" fill="none" stroke="#c8daee" stroke-width="19" stroke-linecap="round"/>
+      <path d="M469 270L457 311" fill="none" stroke="#aec6e1" stroke-width="1.300" stroke-linecap="round"/>
+      <g class="roer">
+        <path d="M447 318L457 335" fill="none" stroke="#c8daee" stroke-width="16" stroke-linecap="round"/>
+        <path d="M456 332.500L459.500 338.500" fill="none" stroke="#dfeaf6" stroke-width="17"/>
+      </g>
+      <!-- arm rechts in beeld -->
+      <path d="M539 272L554 316" fill="none" stroke="#c8daee" stroke-width="19" stroke-linecap="round"/>
+      <path d="M531 270L544 311" fill="none" stroke="#aec6e1" stroke-width="1.300" stroke-linecap="round"/>
+      <path d="M555 319L565 348" fill="none" stroke="#c8daee" stroke-width="16" stroke-linecap="round"/>
+      <path d="M564 345.500L566.500 352.500" fill="none" stroke="#dfeaf6" stroke-width="17"/>
+    </g>
+
+    <!-- ================= Kookeiland ================= -->
+    <!-- bladoppervlak (marmer) -->
+    <path d="M232 372H800V394H212Z" fill="#f3eee4"/>
+    <g fill="none" stroke="#dcd4c5" stroke-width="1.2" stroke-linecap="round" opacity=".9">
+      <path d="M250 388q22-8 46-3t40-6"/><path d="M590 378q26 8 52 2t50 6"/><path d="M700 390q30-8 70-4"/><path d="M610 390q-20-6-44-2"/>
+    </g>
+    <rect x="212" y="394" width="588" height="11" fill="#e2dbcd"/>
+    <rect x="212" y="403" width="588" height="2" fill="#cdc4b3"/>
+    <!-- fronten -->
+    <rect x="222" y="405" width="578" height="95" fill="#d2c9b9"/>
+    <rect x="222" y="405" width="578" height="6" fill="#b9af9d" opacity=".55"/>
+    <g stroke="#b7ad9b" stroke-width="2"><line x1="361" y1="411" x2="361" y2="500"/><line x1="501" y1="411" x2="501" y2="500"/><line x1="644" y1="411" x2="644" y2="500"/><line x1="787" y1="411" x2="787" y2="500"/></g>
+    <rect x="212" y="405" width="10" height="95" fill="#c2b8a6"/>
+    <g fill="#6d4428"><circle cx="350" cy="424" r="5"/><circle cx="372" cy="424" r="5"/><circle cx="633" cy="424" r="5"/><circle cx="655" cy="424" r="5"/></g>
+
+    <!-- inductieplaat met afzuiging -->
+    <path d="M346 375H568L575 391H339Z" fill="#1b1b1d"/>
+    <path d="M348 376.500H566" stroke="#3a3a3f" stroke-width="1"/>
+    <ellipse cx="453" cy="383" rx="14" ry="4.200" fill="#2a2a2e" stroke="#44444a" stroke-width="1"/>
+    <path d="M443 383H463M446 380.900H460M446 385.100H460" stroke="#55555c" stroke-width=".9"/>
+
+    <!-- snijplank met groente -->
+    <path d="M246 377H322L318 390H240Z" fill="#c99b68"/>
+    <path d="M240 390H318V392.500H240Z" fill="#a97c4d"/>
+    <rect x="288" y="371" width="28" height="9" rx="4.500" fill="#5d8a4a"/>
+    <rect x="288" y="371" width="7" height="9" rx="3.500" fill="#4b743b"/>
+    <circle cx="262" cy="375" r="7.500" fill="#d6492f"/><circle cx="276" cy="378" r="6.500" fill="#e05a3a"/>
+    <path d="M262 368.500l-3-3m3 3l3-3m-3 3v-4" stroke="#3f7a3a" stroke-width="1.400" stroke-linecap="round"/>
+    <path d="M276 372.500l-2.500-2.500m2.500 2.500l2.500-2.500" stroke="#3f7a3a" stroke-width="1.300" stroke-linecap="round"/>
+
+    <!-- braadpan links -->
+    <g transform="translate(6 0)">
+      <rect x="356" y="364" width="8" height="5" rx="2" fill="#a8432e"/><rect x="408" y="364" width="8" height="5" rx="2" fill="#a8432e"/>
+      <path d="M362 357H410V380Q410 386 404 386H368Q362 386 362 380Z" fill="#c8553d"/>
+      <path d="M400 357H410V380Q410 386 404 386H400Z" fill="#a8432e" opacity=".7"/>
+      <rect x="360" y="354" width="52" height="5" rx="2.500" fill="#dd6b50"/>
+    </g>
+
+    <!-- pollepel (roert mee), koekenpan, steel -->
+    <g transform="matrix(.92 0 0 .92 50 30.72)">
+      <g class="roer"><path d="M450 328.500L488 365.500" stroke="#c08a52" stroke-width="5.400" stroke-linecap="round"/></g>
+    </g>
+    <g transform="translate(10 0)">
+      <circle cx="481" cy="359.500" r="3.200" fill="#d6492f"/><circle cx="512" cy="360" r="3" fill="#5d8a4a"/><circle cx="521" cy="360.500" r="2.600" fill="#e8c24a"/><circle cx="503" cy="359.500" r="2.800" fill="#d6492f"/>
+      <path d="M466 363H534L528 385H472Z" fill="#38383b"/>
+      <path d="M522 363H534L528 385H520Z" fill="#2a2a2c" opacity=".8"/>
+      <rect x="463" y="360.500" width="74" height="4.500" rx="2.200" fill="#56565b"/>
+      <rect x="534" y="364" width="56" height="5.500" rx="2.700" fill="#252527"/>
+    </g>
+    <!-- lichte damp boven de koekenpan -->
+    <g class="damp damp-pan" fill="none" stroke="#ffffff" stroke-width="2.200" stroke-linecap="round">
+      <path d="M503 354c-5-7 5-12 0-19s5-12 0-19"/>
+      <path d="M521 354c-5-7 5-12 0-19s5-12 0-19"/>
+    </g>
+    <!-- handen -->
+    <g transform="matrix(.92 0 0 .92 50 30.72)">
+      <g class="roer">
+        <circle cx="461" cy="341" r="8.500" fill="#f2cbac"/>
+        <path d="M455.500 335.500q5.500-3 11 1" fill="none" stroke="#dcae8c" stroke-width="1.300" stroke-linecap="round"/>
+      </g>
+      <circle cx="569" cy="361.500" r="8.500" fill="#f2cbac"/>
+      <path d="M562.500 365q6.500 3.500 13 0" fill="none" stroke="#dcae8c" stroke-width="1.300" stroke-linecap="round"/>
+    </g>
+
+    <!-- spoelbak, messing kraan, zeeppompjes, wijnglas -->
+    <path d="M668 378H742L746 389H664Z" fill="#cfc7b8"/>
+    <path d="M672 380H738L740 386H670Z" fill="#b5ad9d"/>
+    <path d="M655 391V338a15 15 0 0 1 30 0v12" fill="none" stroke="#b8935a" stroke-width="5.500" stroke-linecap="round"/>
+    <rect x="650" y="386" width="10" height="6" rx="1.500" fill="#a17e48"/>
+    <path d="M657 362h9" stroke="#a17e48" stroke-width="3.500" stroke-linecap="round"/>
+    <g>
+      <rect x="752" y="366" width="11" height="24" rx="2" fill="#7a4a22"/><rect x="755.500" y="358" width="4" height="8" fill="#2a2a2c"/><path d="M757.500 359h7" stroke="#2a2a2c" stroke-width="2.200" stroke-linecap="round"/>
+      <rect x="766" y="368" width="11" height="22" rx="2" fill="#30463a"/><rect x="769.500" y="361" width="4" height="7" fill="#2a2a2c"/><path d="M771.500 362h7" stroke="#2a2a2c" stroke-width="2.200" stroke-linecap="round"/>
+    </g>
+    <g fill="none" stroke="#ffffff" stroke-width="1.500" opacity=".85">
+      <path d="M704 350q0 14 8 14t8-14Z" fill="#ffffff" fill-opacity=".25"/>
+      <path d="M712 364v20m-6 0h12"/>
+    </g>
+    <path d="M705.500 356q1 7 6.500 7t6.500-7Z" fill="#8f2f3f" opacity=".85"/>
+  </g>
+</svg>

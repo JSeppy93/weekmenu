@@ -1,6 +1,6 @@
 // Service worker: zorgt dat de app offline werkt (bijv. in de winkel zonder bereik).
 // Verhoog VERSION bij elke wijziging, dan haalt de app de nieuwe bestanden op.
-const VERSION = 'weekmenu-v2';
+const VERSION = 'weekmenu-v3';
 const FILES = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const FILES = [
   './app.js',
   './recipes.js',
   './manifest.webmanifest',
+  './keuken.svg',
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
@@ -30,7 +31,8 @@ self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(
-    fetch(req)
+    // 'no-cache': altijd bij de server navragen of het bestand gewijzigd is, zodat updates direct zichtbaar zijn.
+    fetch(req.url, { cache: 'no-cache' })
       .then(res => {
         if (res.ok) {
           const copy = res.clone();

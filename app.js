@@ -405,7 +405,11 @@ function renderWeek() {
         ${swap}
       </article>`;
   }).join('');
-  view.innerHTML = weekNav() + cards + `
+  const hero = `
+    <figure class="hero">
+      <img src="keuken.svg" width="640" height="424" alt="Jeroen staat te koken in zijn keuken">
+    </figure>`;
+  view.innerHTML = hero + weekNav() + cards + `
     <a class="btn primary block" href="#/lijst">🛒 Boodschappenlijst voor deze week</a>`;
 }
 
