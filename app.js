@@ -588,7 +588,21 @@ function slotCard(weekKey, week, slot, edit) {
   const when = `<div class="when"><b>${slot.title}</b><span>${dates}</span></div>`;
 
   if (!info.portions) {
-    return `<article class="card slot off">${when}<div class="offtext">${esc(cap(offText))}</div></article>`;
+    // Leeg blok: aantikken om er zelf een gerecht in te zetten.
+    const fillOpen = ui.openFill === slot.key;
+    const options = fillOpen ? activeRecipes()
+      .filter(c => (slot.soup ? c.type === 'soep' : c.type !== 'soep'))
+      .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name, 'nl')) : [];
+    return `
+      <article class="card slot off" data-action="fill-toggle" data-slot="${slot.key}">
+        ${when}
+        <div class="offtext">${esc(cap(offText))}</div>
+        <div class="actions"><button class="btn small">${fillOpen ? 'Sluiten' : 'Gerecht kiezen'}</button></div>
+        ${fillOpen ? `<div class="swap-list">
+          <div class="hint">Kies wat er in dit blok gegeten is of wordt. De dagen komen dan op thuis eten te staan.</div>
+          ${options.map(c => `<button data-action="fill-pick" data-week="${weekKey}" data-slot="${slot.key}" data-id="${c.id}"><strong>${esc(c.name)}</strong><br><span class="hint">${TYPE_LABEL[c.type]} · ${esc(c.cuisine)} · ${c.time} min</span></button>`).join('')}
+        </div>` : ''}
+      </article>`;
   }
 
   const r = info.recipe;
@@ -995,6 +1009,7 @@ function rerender(keepScroll = true) {
 window.addEventListener('hashchange', () => {
   ui.navCount++;
   ui.openSwap = null;
+  ui.openFill = null;
   route();
   window.scrollTo(0, 0);
 });
@@ -1018,7 +1033,7 @@ view.addEventListener('click', e => {
   const planWeek = state.weeks[ui.planKey];
 
   switch (a) {
-    case 'week-sel': ui.weekSel = el.dataset.sel; rerender(); break;
+    case 'week-sel': ui.weekSel = el.dataset.sel; ui.openFill = null; rerender(); break;
     case 'day-status':
       planWeek.days[el.dataset.day].s = el.dataset.s;
       fillWeek(ui.planKey, false);
@@ -1030,6 +1045,18 @@ view.addEventListener('click', e => {
       const d = planWeek.days[el.dataset.day];
       d.n = Math.min(12, Math.max(1, d.n + (a === 'day-inc' ? 1 : -1)));
       save();
+      rerender();
+      break;
+    }
+    case 'fill-toggle': ui.openFill = ui.openFill === el.dataset.slot ? null : el.dataset.slot; rerender(); break;
+    case 'fill-pick': {
+      const week = state.weeks[el.dataset.week];
+      const slot = SLOT_BY_KEY[el.dataset.slot];
+      slot.days.forEach(k => { week.days[k].s = 'thuis'; });
+      week.slots[slot.key] = el.dataset.id;
+      save();
+      ui.openFill = null;
+      toast('Gerecht ingevuld');
       rerender();
       break;
     }

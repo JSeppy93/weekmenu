@@ -185,7 +185,7 @@ main {
 .stepper output { color: var(--text); font-weight: 700; min-width: 2ch; text-align: center; font-size: 15px; }
 .stepper .iconbtn { width: 32px; height: 32px; font-size: 17px; }
 
-.slot.off { background: none; border-style: dashed; }
+.slot.off { background: none; border-style: dashed; cursor: pointer; }
 .offtext { color: var(--muted); font-size: 15px; }
 .cta p, .empty p { margin: 0 0 12px; }
 .empty { text-align: center; }
