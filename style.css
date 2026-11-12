@@ -209,6 +209,7 @@ main {
 
 .slot.off { background: none; border-style: dashed; cursor: pointer; }
 .offtext { color: var(--muted); font-size: 15px; }
+.cta { margin-top: 20px; }
 .cta p, .empty p { margin: 0 0 12px; }
 .empty { text-align: center; }
 .manage { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); }

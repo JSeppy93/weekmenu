@@ -688,8 +688,6 @@ function renderWeek() {
   const hasNext = !!fixedWeek(nk);
   const sel = ui.weekSel === 'next' && hasNext ? nk : ck;
   const week = fixedWeek(sel);
-  const dow = new Date().getDay();
-  const ctaFirst = dow === 3 || dow === 4; // woensdag en donderdag: plannen staat bovenaan
 
   const hero = `
     <figure class="hero">
@@ -717,7 +715,7 @@ function renderWeek() {
         <a class="btn block" href="#/plan/${sel}">${draft ? 'Verder met het concept' : 'Menu maken voor deze week'}</a>
       </section>`;
   }
-  view.innerHTML = hero + (ctaFirst ? cta : '') + switcher + weekHead(sel) + body + (ctaFirst ? '' : cta);
+  view.innerHTML = hero + switcher + weekHead(sel) + body + cta;
 }
 
 function renderPlan(weekKey) {
