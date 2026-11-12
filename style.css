@@ -113,9 +113,107 @@ main {
   color: var(--muted);
   text-decoration: none;
 }
-.tabbar a .ico { font-size: 22px; line-height: 1; filter: grayscale(1); opacity: .7; }
 .tabbar a.active { color: var(--accent); font-weight: 600; }
-.tabbar a.active .ico { filter: none; opacity: 1; }
+
+/* Lijniconen: één kleur, volgt de tekstkleur */
+.tabbar svg, .gear svg {
+  width: 24px; height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.gear {
+  display: grid;
+  place-items: center;
+  width: 36px; height: 36px;
+  margin: -4px -6px -4px 0;
+  color: var(--muted);
+}
+.gear.active { color: var(--accent); }
+
+/* Weekkop en weekkeuze */
+.weekhead { text-align: center; margin-bottom: 14px; }
+.weekhead strong { display: block; font-size: 17px; }
+.weekhead span { font-size: 13px; color: var(--muted); }
+
+.seg {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.seg button {
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.seg button.on { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .12); }
+.seg.wide { display: grid; margin-bottom: 14px; }
+.seg.wide button { padding: 8px 10px; font-size: 14px; }
+
+/* Menu maken: wie eet wanneer */
+.days { padding-top: 4px; padding-bottom: 4px; }
+.daygroup { padding: 6px 0; border-bottom: 1px solid var(--line); }
+.daygroup:last-child { border-bottom: 0; }
+.dayrow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 6px 0;
+}
+.dayname b { display: block; font-size: 15px; }
+.dayname span { font-size: 12px; color: var(--muted); }
+.stepper {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.stepper output { color: var(--text); font-weight: 700; min-width: 2ch; text-align: center; font-size: 15px; }
+.stepper .iconbtn { width: 32px; height: 32px; font-size: 17px; }
+
+.slot.off { background: none; border-style: dashed; }
+.offtext { color: var(--muted); font-size: 15px; }
+.cta p, .empty p { margin: 0 0 12px; }
+.empty { text-align: center; }
+.manage { margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); }
+.manage p { margin: 0 0 10px; }
+
+/* Recepten: aantallen per type */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; margin-bottom: 10px; }
+.stats b { display: block; font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stats span { font-size: 12px; color: var(--muted); }
+.stats .low b { color: var(--soep); }
+.warn {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  background: var(--warn-soft);
+  border: 1px solid var(--warn-line);
+}
+details.removed { margin-top: 24px; }
+
+/* Terugblik */
+.hist .when { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.hist .when b { color: var(--text); font-size: 15px; }
+.hrow { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.hday { color: var(--muted); font-size: 13px; padding-top: 2px; }
+.hdish a { color: var(--text); text-decoration: none; font-weight: 600; }
+.hdish small { display: block; color: var(--muted); font-size: 13px; }
 
 /* Keukenvisual bovenaan het weekscherm */
 .hero {

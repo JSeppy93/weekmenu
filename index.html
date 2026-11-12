@@ -19,15 +19,22 @@
   <header class="topbar">
     <button class="back" id="back" hidden aria-label="Terug">‹ Terug</button>
     <h1 id="title">Weekmenu</h1>
+    <a class="gear" href="#/instellingen" data-tab="instellingen" aria-label="Instellingen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h1M11 17h9"/><circle cx="16" cy="7" r="2.5"/><circle cx="8" cy="17" r="2.5"/></svg>
+    </a>
   </header>
 
   <main id="view" tabindex="-1"></main>
 
   <nav class="tabbar" aria-label="Hoofdmenu">
-    <a href="#/week" data-tab="week"><span class="ico" aria-hidden="true">📅</span>Week</a>
-    <a href="#/lijst" data-tab="lijst"><span class="ico" aria-hidden="true">🛒</span>Boodschappen</a>
-    <a href="#/recepten" data-tab="recepten"><span class="ico" aria-hidden="true">📖</span>Recepten</a>
-    <a href="#/instellingen" data-tab="instellingen"><span class="ico" aria-hidden="true">⚙️</span>Instellingen</a>
+    <a href="#/week" data-tab="week">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Week</a>
+    <a href="#/lijst" data-tab="lijst">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2.2l2.3 11h10.3l1.9-7.5H6.4"/><circle cx="9" cy="19" r="1.3"/><circle cx="16.5" cy="19" r="1.3"/></svg>Boodschappen</a>
+    <a href="#/recepten" data-tab="recepten">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5C10 5 7 4.5 4 4.5v13c3 0 6 .5 8 2 2-1.5 5-2 8-2v-13c-3 0-6 .5-8 2zM12 6.5v13"/></svg>Recepten</a>
+    <a href="#/terugblik" data-tab="terugblik">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Terugblik</a>
   </nav>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

@@ -632,8 +632,8 @@ const RECIPES = [
 ];
 
 /*
- * Rotatieschema voor 4 weken: per week 3 hoofdgerechten (1 vis) + 1 soep.
- * Elke week mengt keukens en zet niet twee tomatengerechten naast elkaar.
+ * Oud rotatieschema (4 weken). Wordt alleen nog gebruikt om gegevens van de eerste
+ * versie van de app om te zetten; nieuwe recepten hoeven hier niet in.
  */
 const ROTATION = [
   { ma: 'dahl', wo: 'garnalen-pasta', vr: 'chili', zo: 'tomatensoep' },
@@ -642,10 +642,13 @@ const ROTATION = [
   { ma: 'broccoli-pasta', wo: 'viscurry', vr: 'shakshuka', zo: 'minestrone' },
 ];
 
-/* Kookmomenten in de week. Porties zijn standaardwaarden; aan te passen in Instellingen. */
+/*
+ * Kookmomenten in de week. De week loopt van vrijdag t/m donderdag (offset = dagen na vrijdag).
+ * Porties zijn standaardwaarden; aan te passen in Instellingen.
+ */
 const SLOTS = [
-  { key: 'ma', title: 'Maandag & dinsdag', day1: 'maandag', day2: 'dinsdag', offset: 0, portions: 4 },
-  { key: 'wo', title: 'Woensdag & donderdag', day1: 'woensdag', day2: 'donderdag', offset: 2, portions: 4 },
-  { key: 'vr', title: 'Vrijdag & zaterdag', day1: 'vrijdag', day2: 'zaterdag', offset: 4, portions: 6, note: 'Schoonouders eten mee' },
-  { key: 'zo', title: 'Zondag · soepdag', day1: 'zondag', offset: 6, portions: 4, soup: true, note: 'Helft gaat de vriezer in' },
+  { key: 'vr', title: 'Vrijdag & zaterdag', day1: 'vrijdag', day2: 'zaterdag', days: ['vr', 'za'], offset: 0, portions: 6, note: 'Schoonouders eten mee' },
+  { key: 'zo', title: 'Zondag · soepdag', day1: 'zondag', days: ['zo'], offset: 2, portions: 4, soup: true, note: 'Helft gaat de vriezer in' },
+  { key: 'ma', title: 'Maandag & dinsdag', day1: 'maandag', day2: 'dinsdag', days: ['ma', 'di'], offset: 3, portions: 4 },
+  { key: 'wo', title: 'Woensdag & donderdag', day1: 'woensdag', day2: 'donderdag', days: ['wo', 'do'], offset: 5, portions: 4 },
 ];

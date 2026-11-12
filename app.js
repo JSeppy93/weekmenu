@@ -3,25 +3,44 @@
 /* ================================================================
  * Weekmenu – planner voor het avondeten
  * Alles wordt lokaal opgeslagen (localStorage). Geen server, geen account.
+ *
+ * Een week loopt van vrijdag t/m donderdag (boodschappen op donderdagavond).
+ * Per week maak je een menu: de app kiest gerechten die je het langst niet
+ * gegeten hebt, rekening houdend met dagen dat je uit eet of restjes eet.
  * ================================================================ */
 
 const STORE_KEY = 'weekmenu.v1';
-const GV_PORTIONS = 2; // glutenvrije porties per kookmoment: vriendin x 2 dagen
 const RECIPE_BY_ID = Object.fromEntries(RECIPES.map(r => [r.id, r]));
 const SLOT_BY_KEY = Object.fromEntries(SLOTS.map(s => [s.key, s]));
-const DAY_SHORT = { maandag: 'ma', dinsdag: 'di', woensdag: 'wo', donderdag: 'do', vrijdag: 'vr', zaterdag: 'za', zondag: 'zo' };
+const DAYS = [
+  { key: 'vr', name: 'vrijdag' },
+  { key: 'za', name: 'zaterdag' },
+  { key: 'zo', name: 'zondag' },
+  { key: 'ma', name: 'maandag' },
+  { key: 'di', name: 'dinsdag' },
+  { key: 'wo', name: 'woensdag' },
+  { key: 'do', name: 'donderdag' },
+].map((d, i) => ({ ...d, offset: i }));
+const DAY_BY_KEY = Object.fromEntries(DAYS.map(d => [d.key, d]));
+const STATUS_LABEL = { uit: 'uit eten', restjes: 'restjes', leeg: 'niet gepland' };
+const MIN_PER_TYPE = { vega: 6, vis: 3, soep: 3 };
 
 /* ---------------------------------------------------------------- datum */
 
-function mondayOf(date) {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
-  return d;
+function dayStart(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 function addDays(date, n) {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const d = dayStart(date);
   d.setDate(d.getDate() + n);
   return d;
+}
+// De vrijdag waarop de week van deze datum begint.
+function weekStart(date) {
+  return addDays(date, -((date.getDay() - 5 + 7) % 7));
+}
+function mondayOf(date) {
+  return addDays(date, -((date.getDay() + 6) % 7));
 }
 function iso(date) {
   const p = n => String(n).padStart(2, '0');
@@ -31,28 +50,115 @@ function parseIso(s) {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
 }
-function weeksBetween(a, b) {
-  return Math.round((b - a) / (7 * 864e5));
-}
 const fmtDayMonth = new Intl.DateTimeFormat('nl-NL', { day: 'numeric', month: 'short' });
 const fmtDay = new Intl.DateTimeFormat('nl-NL', { day: 'numeric' });
-function weekLabel(monday) {
-  const sunday = addDays(monday, 6);
-  const sameMonth = monday.getMonth() === sunday.getMonth();
-  return `${sameMonth ? fmtDay.format(monday) : fmtDayMonth.format(monday)} – ${fmtDayMonth.format(sunday)}`;
+function weekLabel(weekKey) {
+  const start = parseIso(weekKey);
+  const end = addDays(start, 6);
+  const sameMonth = start.getMonth() === end.getMonth();
+  return `vr ${sameMonth ? fmtDay.format(start) : fmtDayMonth.format(start)} – do ${fmtDayMonth.format(end)}`;
 }
+function curKey() { return iso(weekStart(new Date())); }
+function nextKey() { return iso(addDays(weekStart(new Date()), 7)); }
+function shiftKey(weekKey, weeks) { return iso(addDays(parseIso(weekKey), weeks * 7)); }
+function dayDate(weekKey, dayKey) { return addDays(parseIso(weekKey), DAY_BY_KEY[dayKey].offset); }
 
 /* ---------------------------------------------------------------- opslag */
 
 function defaultState() {
   return {
-    version: 1,
-    rotationAnchor: iso(mondayOf(new Date())), // deze maandag = rotatieweek 1
+    version: 2,
     portions: Object.fromEntries(SLOTS.map(s => [s.key, s.portions])),
-    overrides: {}, // { '2026-11-09': { ma: 'chili' } }
-    checked: {},   // { '2026-11-09': { 'Ui|st': true } }
-    extras: {},    // { '2026-11-09': [{ id, text }] }
+    weeks: {},    // { '2026-11-13': { status: 'concept'|'vast', days: { vr: { s: 'thuis', n: 4 }, … }, slots: { vr: 'chili', … } } }
+    checked: {},  // { '2026-11-13': { 'Ui|st': true } }
+    extras: {},   // { '2026-11-13': [{ id, text }] }
+    removed: [],  // id's van recepten die je niet meer wilt
   };
+}
+
+// Standaardbezetting: dag 2 van een blok is voor 2 eters, de rest eet op dag 1. Zondag telt in porties soep.
+function defaultDays(portions) {
+  const days = {};
+  for (const s of SLOTS) {
+    const p = portions[s.key];
+    if (s.soup) {
+      days[s.days[0]] = { s: 'thuis', n: p };
+    } else {
+      const d2 = Math.min(2, p);
+      days[s.days[0]] = { s: 'thuis', n: Math.max(1, p - d2) };
+      days[s.days[1]] = { s: 'thuis', n: d2 };
+    }
+  }
+  return days;
+}
+
+function normalizeWeek(w, portions) {
+  const base = defaultDays(portions);
+  const days = {};
+  for (const d of DAYS) {
+    const src = (w.days || {})[d.key] || {};
+    const n = Math.round(Number(src.n));
+    days[d.key] = {
+      s: ['thuis', 'uit', 'restjes', 'leeg'].includes(src.s) ? src.s : 'thuis',
+      n: n >= 1 && n <= 12 ? n : base[d.key].n,
+    };
+  }
+  const slots = {};
+  for (const s of SLOTS) {
+    const id = (w.slots || {})[s.key];
+    if (typeof id === 'string' && RECIPE_BY_ID[id]) slots[s.key] = id;
+  }
+  return { status: w.status === 'vast' ? 'vast' : 'concept', days, slots };
+}
+
+function normalizeState(s) {
+  const d = defaultState();
+  if (!s || typeof s !== 'object') return d;
+  if (s.version !== 2) return migrateV1(s);
+  const portions = { ...d.portions, ...(s.portions || {}) };
+  const weeks = {};
+  for (const [k, w] of Object.entries(s.weeks || {})) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(k) && w && typeof w === 'object') weeks[k] = normalizeWeek(w, portions);
+  }
+  return {
+    version: 2,
+    portions,
+    weeks,
+    checked: s.checked || {},
+    extras: s.extras || {},
+    removed: Array.isArray(s.removed) ? s.removed.filter(id => typeof id === 'string') : [],
+  };
+}
+
+// Oude versie (vast schema van 4 weken, week vanaf maandag) omzetten: de lopende week wordt het eerste vastgelegde menu.
+function migrateV1(s) {
+  const st = defaultState();
+  st.portions = { ...st.portions, ...(s.portions || {}) };
+  if (typeof s.rotationAnchor !== 'string') return st;
+  const anchor = parseIso(s.rotationAnchor);
+  const cur = weekStart(new Date());
+  const week = { status: 'vast', days: defaultDays(st.portions), slots: {} };
+  let any = false;
+  for (const slot of SLOTS) {
+    const date = addDays(cur, slot.offset);
+    if (date < anchor) { // van vóór de app: niet verzinnen wat er gegeten is
+      slot.days.forEach(k => { week.days[k].s = 'leeg'; });
+      continue;
+    }
+    const mon = mondayOf(date);
+    const n = Math.round((mon - anchor) / (7 * 864e5));
+    const base = ROTATION[((n % ROTATION.length) + ROTATION.length) % ROTATION.length];
+    const ov = (s.overrides || {})[iso(mon)] || {};
+    week.slots[slot.key] = RECIPE_BY_ID[ov[slot.key]] ? ov[slot.key] : base[slot.key];
+    any = true;
+  }
+  if (any) st.weeks[iso(cur)] = week;
+  for (const field of ['extras', 'checked']) {
+    for (const [k, v] of Object.entries(s[field] || {})) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(k)) st[field][iso(weekStart(parseIso(k)))] = v;
+    }
+  }
+  return st;
 }
 
 function loadState() {
@@ -63,19 +169,6 @@ function loadState() {
   } catch (e) {
     return defaultState();
   }
-}
-
-function normalizeState(s) {
-  const d = defaultState();
-  if (!s || typeof s !== 'object') return d;
-  return {
-    version: 1,
-    rotationAnchor: typeof s.rotationAnchor === 'string' ? s.rotationAnchor : d.rotationAnchor,
-    portions: { ...d.portions, ...(s.portions || {}) },
-    overrides: s.overrides || {},
-    checked: s.checked || {},
-    extras: s.extras || {},
-  };
 }
 
 let state = loadState();
@@ -90,67 +183,173 @@ function save() {
     saveFailed = true;
   }
 }
+save(); // legt een eventuele omzetting van de oude versie meteen vast
 
 // Vraag iOS/Chrome om de opslag niet automatisch op te ruimen.
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().catch(() => {});
 }
 
-/* ---------------------------------------------------------------- planning */
+/* ---------------------------------------------------------------- weekmenu */
 
 const ui = {
-  monday: mondayOf(new Date()),
+  weekSel: 'cur',
   openSwap: null,
   navCount: 0,
 };
 
-function rotationIndex(monday) {
-  const n = weeksBetween(parseIso(state.rotationAnchor), monday);
-  return ((n % ROTATION.length) + ROTATION.length) % ROTATION.length;
+function activeRecipes() {
+  return RECIPES.filter(r => !state.removed.includes(r.id));
 }
 
-function planFor(monday) {
-  const base = ROTATION[rotationIndex(monday)];
-  const ov = state.overrides[iso(monday)] || {};
-  const plan = {};
-  for (const s of SLOTS) {
-    const id = ov[s.key] || base[s.key];
-    plan[s.key] = RECIPE_BY_ID[id] ? id : base[s.key];
+function fixedWeek(key) {
+  const w = state.weeks[key];
+  return w && w.status === 'vast' ? w : null;
+}
+
+// Porties per dag van een kookblok: [dag 1, dag 2]. Een dag telt alleen mee als er thuis gegeten wordt.
+function slotSplit(week, slot) {
+  const n = k => (k && week.days[k].s === 'thuis' ? week.days[k].n : 0);
+  return [n(slot.days[0]), n(slot.days[1])];
+}
+
+function slotInfo(week, slot) {
+  const split = slotSplit(week, slot);
+  const portions = split[0] + split[1];
+  const single = !slot.soup && (split[0] === 0 || split[1] === 0);
+  return {
+    split,
+    portions,
+    single,
+    cookDay: split[0] > 0 || slot.soup ? slot.days[0] : slot.days[1],
+    recipe: portions > 0 ? RECIPE_BY_ID[week.slots[slot.key]] || null : null,
+  };
+}
+
+// Kookcontext voor een recept: hoeveel porties, verdeeld over welke dagen.
+function makeCtx(slot, split, single) {
+  return {
+    slot,
+    split,
+    single,
+    portions: split[0] + split[1],
+    gv: slot && !slot.soup && single ? 1 : 2, // glutenvrije porties: vriendin x aantal dagen
+    cookDay: slot ? DAY_BY_KEY[split[0] > 0 || slot.soup ? slot.days[0] : slot.days[1]].name : null,
+  };
+}
+
+function weekDishes(week) {
+  const out = [];
+  for (const slot of SLOTS) {
+    const info = slotInfo(week, slot);
+    if (info.recipe) out.push({ slot, info, id: info.recipe.id });
   }
-  return plan;
+  return out;
 }
 
-function isOverridden(monday, slotKey) {
-  const ov = state.overrides[iso(monday)];
-  return !!(ov && ov[slotKey] && ov[slotKey] !== ROTATION[rotationIndex(monday)][slotKey]);
-}
-
-// Kandidaten om te wisselen: zelfde soort (vega/vis/soep), en niet in de vorige, huidige of volgende week.
-function swapCandidates(monday, slotKey) {
-  const plan = planFor(monday);
-  const current = RECIPE_BY_ID[plan[slotKey]];
-  const used = new Set();
-  for (const m of [addDays(monday, -7), monday, addDays(monday, 7)]) {
-    Object.values(planFor(m)).forEach(id => used.add(id));
+// Alles wat in vastgelegde weken gekookt is of gaat worden.
+function eatenLog() {
+  const log = [];
+  for (const [key, week] of Object.entries(state.weeks)) {
+    if (week.status !== 'vast') continue;
+    for (const d of weekDishes(week)) log.push({ id: d.id, weekKey: key, date: iso(dayDate(key, d.info.cookDay)) });
   }
-  return RECIPES.filter(r => r.type === current.type && !used.has(r.id));
+  return log;
 }
 
-function setOverride(monday, slotKey, recipeId) {
-  const key = iso(monday);
-  const ov = { ...(state.overrides[key] || {}) };
-  if (!recipeId || recipeId === ROTATION[rotationIndex(monday)][slotKey]) delete ov[slotKey];
-  else ov[slotKey] = recipeId;
-  if (Object.keys(ov).length) state.overrides[key] = ov;
-  else delete state.overrides[key];
-  save();
+function lastEatenBefore(weekKey) {
+  const last = {};
+  for (const e of eatenLog()) {
+    if (e.weekKey < weekKey && (!last[e.id] || e.date > last[e.id])) last[e.id] = e.date;
+  }
+  return last;
+}
+
+function idsInWeek(key) {
+  const w = state.weeks[key];
+  return w ? weekDishes(w).map(d => d.id) : [];
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Kies een recept van dit type: niet uit de vorige week, liefst het langst geleden gegeten en een andere keuken.
+function pickRecipe(weekKey, type, usedIds, usedCuisines) {
+  const pool = activeRecipes().filter(r => r.type === type);
+  const recent = new Set(idsInWeek(shiftKey(weekKey, -1)));
+  let elig = pool.filter(r => !usedIds.has(r.id) && !recent.has(r.id));
+  if (!elig.length) elig = pool.filter(r => !usedIds.has(r.id));
+  if (!elig.length) return null;
+  const last = lastEatenBefore(weekKey);
+  const sorted = shuffle(elig).sort((a, b) => (last[a.id] || '').localeCompare(last[b.id] || ''));
+  const top = sorted.slice(0, 3);
+  const otherCuisine = top.filter(r => !usedCuisines.has(r.cuisine));
+  const from = otherCuisine.length ? otherCuisine : top;
+  return from[Math.floor(Math.random() * from.length)];
+}
+
+// Vult de kookblokken zonder gerecht. Met reroll worden alle gerechten opnieuw gekozen.
+function fillWeek(weekKey, reroll) {
+  const week = state.weeks[weekKey];
+  const active = SLOTS.filter(s => slotInfo(week, s).portions > 0);
+  if (reroll) active.forEach(s => { delete week.slots[s.key]; });
+  const has = s => !!RECIPE_BY_ID[week.slots[s.key]];
+  const usedIds = new Set(active.filter(has).map(s => week.slots[s.key]));
+  const usedCuisines = new Set([...usedIds].map(id => RECIPE_BY_ID[id].cuisine));
+  const mains = active.filter(s => !s.soup);
+  const hasFish = mains.some(s => has(s) && RECIPE_BY_ID[week.slots[s.key]].type === 'vis');
+  const emptyMains = mains.filter(s => !has(s));
+  const fishSlot = !hasFish && emptyMains.length ? emptyMains[Math.floor(Math.random() * emptyMains.length)] : null;
+  for (const slot of active) {
+    if (has(slot)) continue;
+    const types = slot.soup ? ['soep'] : slot === fishSlot ? ['vis', 'vega'] : ['vega', 'vis'];
+    let r = null;
+    for (const t of types) { r = pickRecipe(weekKey, t, usedIds, usedCuisines); if (r) break; }
+    if (!r) continue;
+    week.slots[slot.key] = r.id;
+    usedIds.add(r.id);
+    usedCuisines.add(r.cuisine);
+  }
+}
+
+function ensureDraft(weekKey) {
+  if (!state.weeks[weekKey]) {
+    state.weeks[weekKey] = { status: 'concept', days: defaultDays(state.portions), slots: {} };
+    fillWeek(weekKey, false);
+    save();
+  }
+  return state.weeks[weekKey];
+}
+
+// Kandidaten om te wisselen: niet in de vorige, deze of volgende week. Langst geleden gegeten bovenaan.
+function swapCandidates(weekKey, slot) {
+  const used = new Set([...idsInWeek(shiftKey(weekKey, -1)), ...idsInWeek(weekKey), ...idsInWeek(shiftKey(weekKey, 1))]);
+  const last = lastEatenBefore(weekKey);
+  return activeRecipes()
+    .filter(r => (slot.soup ? r.type === 'soep' : r.type !== 'soep') && !used.has(r.id))
+    .sort((a, b) => (last[a.id] || '').localeCompare(last[b.id] || '') || a.name.localeCompare(b.name, 'nl'))
+    .map(r => ({ r, last: last[r.id] }));
+}
+
+// De boodschappenlijst hoort bij het laatst vastgelegde menu.
+function listWeekKey() {
+  if (fixedWeek(nextKey())) return nextKey();
+  if (fixedWeek(curKey())) return curKey();
+  return null;
 }
 
 /* ---------------------------------------------------------------- hoeveelheden */
 
-function scaledQty(ing, portions) {
-  if (ing.fixed || ing.s === 'gv') return ing.q;
-  if (ing.s === 'normaal') return ing.q * Math.max(0, portions - GV_PORTIONS) / 2;
+function scaledQty(ing, portions, gv = 2) {
+  if (ing.fixed) return ing.q;
+  if (ing.s === 'gv') return ing.q * gv / 2;
+  if (ing.s === 'normaal') return ing.q * Math.max(0, portions - gv) / 2;
   return ing.q * portions / 4;
 }
 
@@ -197,7 +396,7 @@ function qtyText(q, u) {
   return label ? `${num} ${label}` : num;
 }
 
-// Verdeling over dag 1 en dag 2: dag 2 is altijd voor 2 personen, de rest is voor dag 1.
+// Standaardverdeling over dag 1 en dag 2: dag 2 is voor 2 personen, de rest is voor dag 1.
 function daySplit(portions) {
   const d2 = Math.min(2, portions);
   return [Math.max(0, portions - d2), d2];
@@ -213,9 +412,10 @@ function shareWord(part, total) {
 }
 
 // Vult {d1} (deel voor vandaag) en {d2} (deel voor dag 2) in de recepttekst in.
-function fill(text, portions) {
-  const [d1, d2] = daySplit(portions);
-  return text.replace(/\{d1\}/g, shareWord(d1, portions)).replace(/\{d2\}/g, shareWord(d2, portions));
+function fill(text, ctx) {
+  const d1 = ctx.single ? ctx.portions : ctx.split[0];
+  const d2 = ctx.single ? 0 : ctx.split[1];
+  return text.replace(/\{d1\}/g, shareWord(d1, ctx.portions)).replace(/\{d2\}/g, shareWord(d2, ctx.portions));
 }
 
 // In de winkel: naar boven afronden op hele stuks en ronde grammen.
@@ -231,35 +431,35 @@ function ingName(ing) {
 
 /* ---------------------------------------------------------------- boodschappenlijst */
 
-function shoppingList(monday) {
-  const plan = planFor(monday);
+function shoppingList(weekKey) {
+  const week = state.weeks[weekKey];
   const items = new Map();
-  for (const slot of SLOTS) {
-    const recipe = RECIPE_BY_ID[plan[slot.key]];
-    const portions = state.portions[slot.key];
-    for (const ing of recipe.ingredients) {
+  for (const { slot, info } of weekDishes(week)) {
+    const ctx = makeCtx(slot, info.split, info.single);
+    for (const ing of info.recipe.ingredients) {
+      const q = scaledQty(ing, ctx.portions, ctx.gv);
+      if (q <= 0) continue;
       const key = `${ing.n}|${ing.u}`;
       if (!items.has(key)) {
         items.set(key, { key, n: ing.n, u: ing.u, c: ing.c, note: ing.note, q: 0, days: [] });
       }
       const it = items.get(key);
-      it.q += scaledQty(ing, portions);
-      const day = DAY_SHORT[slot.day1];
-      if (!it.days.includes(day)) it.days.push(day);
+      it.q += q;
+      if (!it.days.includes(info.cookDay)) it.days.push(info.cookDay);
     }
   }
   const list = [...items.values()].map(it => ({ ...it, q: shopQty(it.q, it.u) }));
-  for (const x of state.extras[iso(monday)] || []) {
+  for (const x of state.extras[weekKey] || []) {
     list.push({ key: `x:${x.id}`, n: x.text, c: 'eigen', extraId: x.id });
   }
   list.sort((a, b) => a.n.localeCompare(b.n, 'nl'));
   return list;
 }
 
-function shoppingText(monday) {
-  const list = shoppingList(monday);
-  const checked = state.checked[iso(monday)] || {};
-  const lines = [`*Boodschappen ${weekLabel(monday)}*`];
+function shoppingText(weekKey) {
+  const list = shoppingList(weekKey);
+  const checked = state.checked[weekKey] || {};
+  const lines = [`*Boodschappen ${weekLabel(weekKey)}*`];
   for (const cat of CATEGORIES) {
     const items = list.filter(i => i.c === cat.key && !checked[i.key]);
     if (!items.length) continue;
@@ -269,18 +469,28 @@ function shoppingText(monday) {
   return lines.join('\n');
 }
 
-/* ---------------------------------------------------------------- recepttekst voor WhatsApp */
+/* ---------------------------------------------------------------- recepttekst */
 
-function forWhomText(recipe, slot, portions) {
-  if (!slot) return `${portions} porties`;
-  if (slot.soup) return `Zondag · ${portions} porties (2 om te eten, ${Math.max(0, portions - 2)} voor de vriezer)`;
-  const [d1, d2] = daySplit(portions);
-  return `${cap(slot.day1)} voor ${d1} en ${slot.day2} voor ${d2} personen · ${portions} porties`;
+function portionWord(n) { return n === 1 ? '1 portie' : `${n} porties`; }
+function personWord(n) { return n === 1 ? '1 persoon' : `${n} personen`; }
+
+function forWhomText(ctx) {
+  const { slot, portions } = ctx;
+  if (!slot) return portionWord(portions);
+  if (slot.soup) return `Zondag · ${portionWord(portions)} (2 om te eten, ${Math.max(0, portions - 2)} voor de vriezer)`;
+  if (ctx.single) return `Alleen ${ctx.cookDay}, voor ${personWord(portions)} · ${portionWord(portions)}`;
+  return `${cap(slot.day1)} voor ${ctx.split[0]} en ${slot.day2} voor ${personWord(ctx.split[1])} · ${portionWord(portions)}`;
 }
 
-function freshText(recipe, slot, portions) {
-  if (!recipe.fresh) return '';
-  const [d1, d2] = daySplit(portions);
+function singleText(ctx) {
+  if (!ctx.single) return '';
+  return 'Deze week kook je dit gerecht voor één dag. Je hoeft niets apart te houden: sla de aanwijzingen over bewaren voor dag 2 over.';
+}
+
+function freshText(recipe, ctx) {
+  if (!recipe.fresh || ctx.single) return '';
+  const { slot, portions } = ctx;
+  const [d1, d2] = ctx.split;
   const day1 = slot ? slot.day1 : 'dag 1';
   const day2 = slot ? slot.day2 : 'dag 2';
   let t = `Bereid ${recipe.fresh} elke dag vers: ${d1} van de ${portions} porties op ${day1}, ${d2} op ${day2}.`;
@@ -288,16 +498,23 @@ function freshText(recipe, slot, portions) {
   return t;
 }
 
-function recipeText(recipe, slot, portions) {
-  const lines = [`*${recipe.name}*`, forWhomText(recipe, slot, portions), `⏱ ca. ${recipe.time} minuten`, '', '*Ingrediënten*'];
+function showDay2(recipe, ctx) {
+  return !!recipe.day2 && !ctx.single && !(ctx.slot && ctx.slot.soup);
+}
+
+function recipeText(recipe, ctx) {
+  const lines = [`*${recipe.name}*`, forWhomText(ctx), `⏱ ca. ${recipe.time} minuten`, '', '*Ingrediënten*'];
   for (const ing of recipe.ingredients) {
-    lines.push(`• ${ingName(ing)}: ${qtyText(scaledQty(ing, portions), ing.u)}`);
+    const q = scaledQty(ing, ctx.portions, ctx.gv);
+    if (q > 0) lines.push(`• ${ingName(ing)}: ${qtyText(q, ing.u)}`);
   }
   lines.push('', '*Bereiding*');
-  recipe.steps.forEach((s, i) => lines.push(`${i + 1}. ${fill(s, portions)}`));
-  const fresh = freshText(recipe, slot, portions);
+  recipe.steps.forEach((s, i) => lines.push(`${i + 1}. ${fill(s, ctx)}`));
+  const single = singleText(ctx);
+  if (single) lines.push('', `*Eén dag:* ${single}`);
+  const fresh = freshText(recipe, ctx);
   if (fresh) lines.push('', `*Vers per dag:* ${fresh}`);
-  if (recipe.day2 && !(slot && slot.soup)) lines.push('', `*Dag 2${slot ? ` (${slot.day2})` : ''}:* ${fill(recipe.day2, portions)}`);
+  if (showDay2(recipe, ctx)) lines.push('', `*Dag 2${ctx.slot ? ` (${ctx.slot.day2})` : ''}:* ${fill(recipe.day2, ctx)}`);
   if (recipe.gfNote) lines.push('', `*Let op, glutenvrij:* ${recipe.gfNote}`);
   return lines.join('\n');
 }
@@ -349,94 +566,195 @@ function setChrome(title, tab, showBack) {
   titleEl.textContent = title;
   document.title = title === 'Weekmenu' ? 'Weekmenu' : `${title} · Weekmenu`;
   backBtn.hidden = !showBack;
-  document.querySelectorAll('.tabbar a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
+  document.querySelectorAll('[data-tab]').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
 }
 
-function weekNav() {
-  const thisMonday = mondayOf(new Date());
-  const offset = weeksBetween(thisMonday, ui.monday);
-  const rel = offset === 0 ? 'Deze week' : offset === 1 ? 'Volgende week' : offset === -1 ? 'Vorige week' : offset > 0 ? `Over ${offset} weken` : `${-offset} weken geleden`;
+function relLabel(weekKey) {
+  return weekKey === curKey() ? 'Deze week' : weekKey === nextKey() ? 'Volgende week' : 'Week';
+}
+
+function weekHead(weekKey, extra) {
+  return `<div class="weekhead"><strong>${relLabel(weekKey)}</strong><span>${weekLabel(weekKey)}${extra ? ` · ${extra}` : ''}</span></div>`;
+}
+
+// Kaart voor één kookblok. Met edit erbij: wisselknop (in het planscherm).
+function slotCard(weekKey, week, slot, edit) {
+  const info = slotInfo(week, slot);
+  const todayIso = iso(new Date());
+  const dayBits = slot.days.map(k => ({ k, d: week.days[k], date: dayDate(weekKey, k) }));
+  const on = dayBits.filter(b => b.d.s === 'thuis');
+  const offText = dayBits.filter(b => b.d.s !== 'thuis').map(b => `${DAY_BY_KEY[b.k].name} ${STATUS_LABEL[b.d.s]}`).join(', ');
+  const dates = (on.length ? on : dayBits).map(b => `${b.k} ${fmtDay.format(b.date)}`).join(' & ');
+  const when = `<div class="when"><b>${slot.title}</b><span>${dates}</span></div>`;
+
+  if (!info.portions) {
+    return `<article class="card slot off">${when}<div class="offtext">${esc(cap(offText))}</div></article>`;
+  }
+
+  const r = info.recipe;
+  const isToday = on.some(b => iso(b.date) === todayIso);
+  const swapOpen = edit && ui.openSwap === slot.key;
+  let swap = '';
+  if (swapOpen) {
+    const cands = swapCandidates(weekKey, slot);
+    swap = `<div class="swap-list">
+      ${cands.length ? '<div class="hint">Kies een ander gerecht. Bovenaan staat wat je het langst niet gegeten hebt.</div>' : '<div class="hint">Geen ander gerecht beschikbaar zonder herhaling. Tijd voor nieuwe recepten!</div>'}
+      ${cands.map(c => `<button data-action="swap-pick" data-slot="${slot.key}" data-id="${c.r.id}"><strong>${esc(c.r.name)}</strong><br><span class="hint">${TYPE_LABEL[c.r.type]} · ${esc(c.r.cuisine)} · ${c.r.time} min · ${c.last ? `laatst ${fmtDayMonth.format(parseIso(c.last))}` : 'nog niet gegeten'}</span></button>`).join('')}
+    </div>`;
+  }
+  const swapBtn = edit ? `<button class="btn small" data-action="swap-toggle" data-slot="${slot.key}">${swapOpen ? 'Sluiten' : 'Wissel'}</button>` : '';
+
+  if (!r) {
+    return `<article class="card slot">${when}<div class="offtext">Geen recept beschikbaar voor dit blok.</div><div class="actions">${swapBtn}</div>${swap}</article>`;
+  }
+  const href = `#/recept/${r.id}?w=${weekKey}&s=${slot.key}`;
+  const notes = [];
+  if (info.single) notes.push(`Alleen ${DAY_BY_KEY[info.cookDay].name} koken · ${offText}`);
+  else if (slot.note) notes.push(slot.note);
   return `
-    <div class="weeknav">
-      <button class="iconbtn" data-action="week-prev" aria-label="Vorige week">‹</button>
-      <div class="label"><strong>${rel}</strong><span>${weekLabel(ui.monday)} · rotatieweek ${rotationIndex(ui.monday) + 1}</span></div>
-      <button class="iconbtn" data-action="week-next" aria-label="Volgende week">›</button>
-    </div>
-    ${offset !== 0 ? '<button class="today-link" data-action="week-today">Terug naar deze week</button>' : ''}`;
+    <article class="card slot${isToday ? ' is-today' : ''}">
+      ${when}
+      <a class="dish" href="${href}">${esc(r.name)}</a>
+      <div class="meta">
+        ${typeChip(r.type)}
+        <span class="chip plain">⏱ ${r.time} min</span>
+        <span class="chip plain">${portionWord(info.portions)}</span>
+        ${notes.map(n => `<span>${esc(n)}</span>`).join('')}
+      </div>
+      <div class="actions">
+        <a class="btn small" href="${href}">Recept</a>
+        ${swapBtn}
+      </div>
+      ${swap}
+    </article>`;
+}
+
+function nextWeekCta() {
+  const nk = nextKey();
+  const draft = state.weeks[nk];
+  return `
+    <section class="card cta">
+      <h2>Menu voor volgende week</h2>
+      <p class="muted">${weekLabel(nk)}. ${draft ? 'Je concept staat klaar.' : 'Maak het menu vóór je boodschappen doet.'}</p>
+      <a class="btn primary block" href="#/plan/${nk}">${draft ? 'Verder met het concept' : 'Menu maken'}</a>
+    </section>`;
 }
 
 function renderWeek() {
   setChrome('Weekmenu', 'week', false);
-  const plan = planFor(ui.monday);
-  const today = new Date();
-  const todayIso = iso(today);
-  const cards = SLOTS.map(slot => {
-    const r = RECIPE_BY_ID[plan[slot.key]];
-    const portions = state.portions[slot.key];
-    const d1 = addDays(ui.monday, slot.offset);
-    const d2 = slot.soup ? null : addDays(d1, 1);
-    const isToday = iso(d1) === todayIso || (d2 && iso(d2) === todayIso);
-    const dates = d2 ? `${DAY_SHORT[slot.day1]} ${fmtDay.format(d1)} & ${DAY_SHORT[slot.day2]} ${fmtDay.format(d2)}` : `zo ${fmtDay.format(d1)}`;
-    const href = `#/recept/${r.id}?w=${iso(ui.monday)}&s=${slot.key}`;
-    const swapOpen = ui.openSwap === slot.key;
-    let swap = '';
-    if (swapOpen) {
-      const cands = swapCandidates(ui.monday, slot.key);
-      swap = `<div class="swap-list">
-        ${cands.length ? `<div class="hint">Kies een ander ${r.type === 'soep' ? 'soeprecept' : r.type === 'vis' ? 'visgerecht' : 'vegagerecht'} (niet in de vorige, deze of volgende week):</div>` : '<div class="hint">Geen ander gerecht beschikbaar zonder herhaling binnen twee weken. Tijd voor nieuwe recepten!</div>'}
-        ${cands.map(c => `<button data-action="swap-pick" data-slot="${slot.key}" data-id="${c.id}"><strong>${esc(c.name)}</strong><br><span class="hint">${esc(c.cuisine)} · ${c.time} min</span></button>`).join('')}
-      </div>`;
-    }
-    return `
-      <article class="card slot${isToday ? ' is-today' : ''}">
-        <div class="when"><b>${slot.title}</b><span>${dates}</span></div>
-        <a class="dish" href="${href}">${esc(r.name)}</a>
-        <div class="meta">
-          ${typeChip(r.type)}
-          <span class="chip plain">⏱ ${r.time} min</span>
-          <span class="chip plain">${portions} porties</span>
-          ${slot.note ? `<span>${esc(slot.note)}</span>` : ''}
-        </div>
-        <div class="actions">
-          <a class="btn small" href="${href}">Recept</a>
-          <button class="btn small" data-action="swap-toggle" data-slot="${slot.key}">${swapOpen ? 'Sluiten' : '⇄ Wissel'}</button>
-          ${isOverridden(ui.monday, slot.key) ? `<button class="btn small" data-action="swap-reset" data-slot="${slot.key}">Standaard</button>` : ''}
-        </div>
-        ${swap}
-      </article>`;
-  }).join('');
+  const ck = curKey();
+  const nk = nextKey();
+  const hasNext = !!fixedWeek(nk);
+  const sel = ui.weekSel === 'next' && hasNext ? nk : ck;
+  const week = fixedWeek(sel);
+  const dow = new Date().getDay();
+  const ctaFirst = dow === 3 || dow === 4; // woensdag en donderdag: plannen staat bovenaan
+
   const hero = `
     <figure class="hero">
       <img src="keuken.svg" width="640" height="424" alt="Jeroen staat te koken in zijn keuken">
     </figure>`;
-  view.innerHTML = hero + weekNav() + cards + `
-    <a class="btn primary block" href="#/lijst">🛒 Boodschappenlijst voor deze week</a>`;
+  const switcher = hasNext ? `
+    <div class="seg wide" role="group" aria-label="Week kiezen">
+      <button data-action="week-sel" data-sel="cur" class="${sel === ck ? 'on' : ''}">Deze week</button>
+      <button data-action="week-sel" data-sel="next" class="${sel === nk ? 'on' : ''}">Volgende week</button>
+    </div>` : '';
+  const cta = hasNext ? '' : nextWeekCta();
+
+  let body;
+  if (week) {
+    body = SLOTS.map(slot => slotCard(sel, week, slot, false)).join('') + `
+      <div class="btnrow">
+        ${listWeekKey() === sel ? '<a class="btn primary" href="#/lijst">Boodschappenlijst</a>' : ''}
+        <a class="btn" href="#/plan/${sel}">Menu aanpassen</a>
+      </div>`;
+  } else {
+    const draft = state.weeks[sel];
+    body = `
+      <section class="card empty">
+        <p>Er is nog geen menu voor deze week.</p>
+        <a class="btn block" href="#/plan/${sel}">${draft ? 'Verder met het concept' : 'Menu maken voor deze week'}</a>
+      </section>`;
+  }
+  view.innerHTML = hero + (ctaFirst ? cta : '') + switcher + weekHead(sel) + body + (ctaFirst ? '' : cta);
+}
+
+function renderPlan(weekKey) {
+  if (weekKey !== curKey() && weekKey !== nextKey()) { location.replace('#/week'); return; }
+  const week = ensureDraft(weekKey);
+  ui.planKey = weekKey;
+  const isDraft = week.status !== 'vast';
+  setChrome(isDraft ? 'Menu maken' : 'Menu aanpassen', 'week', true);
+
+  const dayRows = SLOTS.map(slot => `
+    <div class="daygroup">
+      ${slot.days.map(k => {
+        const d = week.days[k];
+        const hint = k === 'zo' ? 'porties soep' : 'eters';
+        return `
+        <div class="dayrow">
+          <div class="dayname"><b>${cap(DAY_BY_KEY[k].name)}</b><span>${fmtDayMonth.format(dayDate(weekKey, k))}</span></div>
+          <div class="seg" role="group" aria-label="${cap(DAY_BY_KEY[k].name)}">
+            ${[['thuis', 'Thuis'], ['uit', 'Uit eten'], ['restjes', 'Restjes']].map(([s, label]) => `<button data-action="day-status" data-day="${k}" data-s="${s}" class="${d.s === s ? 'on' : ''}" aria-pressed="${d.s === s}">${label}</button>`).join('')}
+          </div>
+          ${d.s === 'thuis' ? `
+          <div class="stepper">
+            <span>${hint}</span>
+            <button class="iconbtn" data-action="day-dec" data-day="${k}" aria-label="Minder ${hint}">−</button>
+            <output>${d.n}</output>
+            <button class="iconbtn" data-action="day-inc" data-day="${k}" aria-label="Meer ${hint}">+</button>
+          </div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`).join('');
+
+  view.innerHTML = weekHead(weekKey, isDraft ? 'concept' : 'vastgelegd') + `
+    <h3>Wie eet wanneer?</h3>
+    <p class="muted">Geef aan wat er deze week afwijkt. Bij uit eten of restjes kookt de app alleen voor de andere dag van het blok.</p>
+    <section class="card days">${dayRows}</section>
+
+    <h3>Menu</h3>
+    ${SLOTS.map(slot => slotCard(weekKey, week, slot, true)).join('')}
+
+    <div class="btnrow">
+      <button class="btn" data-action="reroll">Opnieuw kiezen</button>
+      ${isDraft ? '<button class="btn primary" data-action="plan-fix">Menu vastleggen</button>' : '<a class="btn primary" href="#/week">Klaar</a>'}
+    </div>
+    ${isDraft ? '<button class="today-link" data-action="plan-discard">Concept weggooien</button>' : ''}`;
 }
 
 function renderRecipe(id, params) {
   const recipe = RECIPE_BY_ID[id];
   if (!recipe) { location.hash = '#/recepten'; return; }
-  const slot = SLOT_BY_KEY[params.get('s')] || null;
-  const fromWeek = !!slot;
-  if (ui.recipePortions == null || ui.recipeKey !== location.hash) {
+  const week = state.weeks[params.get('w')];
+  const slot = week ? SLOT_BY_KEY[params.get('s')] || null : null;
+  const base = slot ? slotInfo(week, slot) : null;
+  const inPlan = !!(base && base.portions);
+  if (ui.recipeSplit == null || ui.recipeKey !== location.hash) {
     ui.recipeKey = location.hash;
-    ui.recipePortions = slot ? state.portions[slot.key] : 4;
+    ui.recipeSplit = inPlan ? base.split.slice() : daySplit(4);
   }
-  const portions = ui.recipePortions;
-  setChrome(recipe.name, fromWeek ? 'week' : 'recepten', true);
+  const ctx = makeCtx(inPlan ? slot : null, ui.recipeSplit, inPlan && base.single);
+  const portions = ctx.portions;
+  const removed = state.removed.includes(id);
+  setChrome(recipe.name, inPlan ? 'week' : 'recepten', true);
 
-  const ingredients = recipe.ingredients.map(ing => `
-    <li><span class="q">${esc(qtyText(scaledQty(ing, portions), ing.u))}</span><span>${esc(ingName(ing))}</span></li>`).join('');
-  const steps = recipe.steps.map(s => `<li>${esc(fill(s, portions))}</li>`).join('');
-  const fresh = freshText(recipe, slot, portions);
-  const showDay2 = recipe.day2 && !(slot && slot.soup);
+  const ingredients = recipe.ingredients
+    .map(ing => [ing, scaledQty(ing, portions, ctx.gv)])
+    .filter(([, q]) => q > 0)
+    .map(([ing, q]) => `<li><span class="q">${esc(qtyText(q, ing.u))}</span><span>${esc(ingName(ing))}</span></li>`).join('');
+  const steps = recipe.steps.map(s => `<li>${esc(fill(s, ctx))}</li>`).join('');
+  const single = singleText(ctx);
+  const fresh = freshText(recipe, ctx);
+  const log = eatenLog().filter(e => e.id === id && e.date <= iso(new Date())).map(e => e.date).sort();
+  const eaten = log.length ? `Laatst gegeten op ${fmtDayMonth.format(parseIso(log[log.length - 1]))} · ${log.length}× in totaal` : 'Nog niet gegeten';
 
   view.innerHTML = `
     <div class="recipe-head">
       <div class="meta">${typeChip(recipe.type)}<span class="chip plain">⏱ ca. ${recipe.time} min</span><span class="chip plain">${esc(recipe.cuisine)}</span></div>
       <h2>${esc(recipe.name)}</h2>
       <p>${esc(recipe.intro)}</p>
-      <div class="for-whom">${esc(forWhomText(recipe, slot, portions))}</div>
+      <div class="for-whom">${esc(forWhomText(ctx))}</div>
       <div class="portions">
         <span>Porties</span>
         <button class="iconbtn" data-action="portions-dec" aria-label="Minder porties">−</button>
@@ -446,9 +764,11 @@ function renderRecipe(id, params) {
     </div>
 
     <div class="btnrow share">
-      <a class="btn whatsapp" href="${whatsappUrl(recipeText(recipe, slot, portions))}" target="_blank" rel="noopener">Stuur via WhatsApp</a>
+      <a class="btn whatsapp" href="${whatsappUrl(recipeText(recipe, ctx))}" target="_blank" rel="noopener">Stuur via WhatsApp</a>
       <button class="btn" data-action="share-recipe">Delen…</button>
     </div>
+
+    ${single ? `<div class="note gf"><b>Eén dag</b>${esc(single)}</div>` : ''}
 
     <h3>Ingrediënten</h3>
     <div class="card"><ul class="ingredients">${ingredients}</ul></div>
@@ -457,36 +777,81 @@ function renderRecipe(id, params) {
     <ol class="steps">${steps}</ol>
 
     ${fresh ? `<div class="note fresh"><b>Vers per dag</b>${esc(fresh)}</div>` : ''}
-    ${showDay2 ? `<div class="note day2"><b>Dag 2${slot ? ` · ${slot.day2}` : ''} (ca. ${recipe.day2Time || 15} min)</b>${esc(fill(recipe.day2, portions))}</div>` : ''}
+    ${showDay2(recipe, ctx) ? `<div class="note day2"><b>Dag 2${ctx.slot ? ` · ${ctx.slot.day2}` : ''} (ca. ${recipe.day2Time || 15} min)</b>${esc(fill(recipe.day2, ctx))}</div>` : ''}
     ${recipe.gfNote ? `<div class="note gf"><b>Let op, glutenvrij</b>${esc(recipe.gfNote)}</div>` : ''}
+
+    <section class="manage">
+      <p class="muted">${eaten}${removed ? ' · Dit recept is verwijderd en komt niet meer in nieuwe menu’s.' : ''}</p>
+      ${removed
+        ? `<button class="btn" data-action="recipe-restore" data-id="${id}">Recept terugzetten</button>`
+        : `<button class="btn danger" data-action="recipe-remove" data-id="${id}">Recept verwijderen</button>`}
+    </section>
   `;
 
-  view.onShareRecipe = () => shareText(recipeText(recipe, slot, portions), recipe.name);
+  view.onShareRecipe = () => shareText(recipeText(recipe, ctx), recipe.name);
 }
 
 function renderRecipes() {
   setChrome('Recepten', 'recepten', false);
+  const todayIso = iso(new Date());
+  const stats = {};
+  for (const e of eatenLog()) {
+    if (e.date > todayIso) continue;
+    const s = stats[e.id] || (stats[e.id] = { n: 0, last: '' });
+    s.n++;
+    if (e.date > s.last) s.last = e.date;
+  }
+  const active = activeRecipes();
+  const removed = RECIPES.filter(r => state.removed.includes(r.id));
   const groups = [
-    ['vega', 'Vega hoofdgerechten'],
-    ['vis', 'Visgerechten'],
-    ['soep', 'Soepen'],
+    ['vega', 'Vega hoofdgerechten', 'vegagerechten'],
+    ['vis', 'Visgerechten', 'visgerechten'],
+    ['soep', 'Soepen', 'soepen'],
   ];
+  const count = type => active.filter(r => r.type === type).length;
+  const short = groups.filter(([type]) => count(type) < MIN_PER_TYPE[type]);
+  const item = r => {
+    const s = stats[r.id];
+    return `
+      <a class="list-link" href="#/recept/${r.id}">
+        <span><strong>${esc(r.name)}</strong><small>${esc(r.cuisine)} · ${r.time} min · ${s ? `laatst ${fmtDayMonth.format(parseIso(s.last))} · ${s.n}×` : 'nog niet gegeten'}</small></span>
+        <span class="arrow">›</span>
+      </a>`;
+  };
+
   view.innerHTML = `
-    <p class="muted">${RECIPES.length} recepten. Alle hoofdgerechten zijn voor twee dagen, met een glutenvrije saus.</p>
+    <section class="card">
+      <div class="stats">
+        ${groups.map(([type]) => `<div class="${count(type) < MIN_PER_TYPE[type] ? 'low' : ''}"><b>${count(type)}</b><span>${TYPE_LABEL[type]}</span></div>`).join('')}
+        <div><b>${active.length}</b><span>Totaal</span></div>
+      </div>
+      ${short.map(([type, , plural]) => `<p class="warn">Weinig ${plural}: met minder dan ${MIN_PER_TYPE[type]} komt hetzelfde gerecht snel terug.</p>`).join('')}
+      <p class="muted">Nieuwe recepten maak je op je laptop met het commando <b>/nieuwe-recepten</b> in Claude. Verwijderen doe je onderaan een recept.</p>
+    </section>
     ${groups.map(([type, label]) => `
-      <div class="section-title">${label}</div>
-      ${RECIPES.filter(r => r.type === type).map(r => `
-        <a class="list-link" href="#/recept/${r.id}">
-          <span><strong>${esc(r.name)}</strong><small>${esc(r.cuisine)} · ${r.time} min</small></span>
-          <span class="arrow">›</span>
-        </a>`).join('')}
-    `).join('')}`;
+      <div class="section-title">${label} · ${count(type)}</div>
+      ${active.filter(r => r.type === type).map(item).join('') || '<p class="muted">Geen recepten.</p>'}
+    `).join('')}
+    ${removed.length ? `
+      <details class="pantry removed">
+        <summary>Verwijderde recepten <small>· ${removed.length}</small></summary>
+        ${removed.map(item).join('')}
+      </details>` : ''}`;
 }
 
 function renderList() {
   setChrome('Boodschappen', 'lijst', false);
-  const wk = iso(ui.monday);
-  const list = shoppingList(ui.monday);
+  const wk = listWeekKey();
+  if (!wk) {
+    const nk = nextKey();
+    view.innerHTML = `
+      <section class="card empty">
+        <p>Er is nog geen vastgelegd menu. Maak eerst het menu, dan staat hier je boodschappenlijst.</p>
+        <a class="btn primary block" href="#/plan/${nk}">Menu maken voor volgende week</a>
+      </section>`;
+    return;
+  }
+  const list = shoppingList(wk);
   const checked = state.checked[wk] || {};
   const countable = list.filter(i => i.c !== 'voorraad');
   const done = countable.filter(i => checked[i.key]).length;
@@ -516,7 +881,7 @@ function renderList() {
   const extras = list.filter(i => i.c === 'eigen');
   const pantry = list.filter(i => i.c === 'voorraad');
 
-  view.innerHTML = weekNav() + `
+  view.innerHTML = weekHead(wk) + `
     <div class="progress"><div style="width:${pct}%"></div></div>
     <div class="progress-label">${done} van ${countable.length} afgevinkt</div>
     ${groups}
@@ -540,25 +905,39 @@ function renderList() {
     </div>`;
 }
 
+function renderHistory() {
+  setChrome('Terugblik', 'terugblik', false);
+  const ck = curKey();
+  const keys = Object.keys(state.weeks).filter(k => k <= ck && fixedWeek(k)).sort().reverse();
+  if (!keys.length) {
+    view.innerHTML = '<section class="card empty"><p>Hier zie je straks per week wat jullie gegeten hebben.</p></section>';
+    return;
+  }
+  view.innerHTML = keys.map(key => {
+    const week = state.weeks[key];
+    const rows = SLOTS.map(slot => {
+      const info = slotInfo(week, slot);
+      const offs = slot.days.filter(k => week.days[k].s !== 'thuis').map(k => `${k} ${STATUS_LABEL[week.days[k].s]}`).join(', ');
+      const dayLabel = info.portions ? (info.single ? info.cookDay : slot.days.join(' & ')) : slot.days.join(' & ');
+      const dish = info.recipe
+        ? `<a href="#/recept/${info.recipe.id}?w=${key}&s=${slot.key}">${esc(info.recipe.name)}</a>${offs ? `<small>${esc(offs)}</small>` : ''}`
+        : `<span class="muted">${esc(cap(offs || 'geen gerecht'))}</span>`;
+      return `<div class="hrow"><span class="hday">${dayLabel}</span><span class="hdish">${dish}</span></div>`;
+    }).join('');
+    return `
+      <section class="card hist">
+        <div class="when"><b>${key === ck ? 'Deze week' : weekLabel(key)}</b><span>${key === ck ? weekLabel(key) : ''}</span></div>
+        ${rows}
+      </section>`;
+  }).join('');
+}
+
 function renderSettings() {
   setChrome('Instellingen', 'instellingen', false);
-  const thisMonday = mondayOf(new Date());
-  const current = rotationIndex(thisMonday) + 1;
   view.innerHTML = `
     <section class="card">
-      <h2>Rotatie</h2>
-      <p class="muted">De 16 recepten draaien in een schema van 4 weken. Hier kies je welke rotatieweek deze week is.</p>
-      <div class="setting">
-        <span>Deze week (${weekLabel(thisMonday)})</span>
-        <select data-action="rotation">
-          ${ROTATION.map((_, i) => `<option value="${i + 1}" ${i + 1 === current ? 'selected' : ''}>Rotatieweek ${i + 1}</option>`).join('')}
-        </select>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Porties</h2>
-      <p class="muted">Aantal porties per kookmoment. Glutenvrije pasta en brood blijven altijd voor ${GV_PORTIONS} porties.</p>
+      <h2>Standaardporties</h2>
+      <p class="muted">Aantal porties per kookblok in een gewone week. Afwijkingen voor één week geef je aan bij het maken van het menu.</p>
       ${SLOTS.map(s => `
         <div class="setting">
           <span>${s.title}${s.note ? `<small>${esc(s.note)}</small>` : ''}</span>
@@ -568,7 +947,7 @@ function renderSettings() {
 
     <section class="card">
       <h2>Back-up</h2>
-      <p class="muted">iOS kan gegevens van web-apps wissen als je de app een paar weken niet opent. Maak af en toe een back-up (bijvoorbeeld naar Bestanden of iCloud Drive).</p>
+      <p class="muted">iOS kan gegevens van web-apps wissen als je de app een paar weken niet opent. Maak af en toe een back-up (bijvoorbeeld naar Bestanden of iCloud Drive). De terugblik zit erin.</p>
       <div class="btnrow">
         <button class="btn" data-action="export">Back-up maken</button>
         <label class="btn">Back-up terugzetten<input type="file" accept="application/json,.json" data-action="import" hidden></label>
@@ -577,12 +956,12 @@ function renderSettings() {
 
     <section class="card">
       <h2>Op je beginscherm</h2>
-      <p class="muted">Open deze pagina in Safari, tik op het deelicoon <b>⬆︎</b> en kies <b>Zet op beginscherm</b>. Daarna werkt de app ook zonder internet, handig in de winkel.</p>
+      <p class="muted">Open deze pagina in Safari, tik op het deelicoon en kies <b>Zet op beginscherm</b>. Daarna werkt de app ook zonder internet, handig in de winkel.</p>
     </section>
 
     <section class="card">
       <h2>Alles wissen</h2>
-      <p class="muted">Zet de app terug naar de beginstand: rotatie, wissels, porties en vinkjes.</p>
+      <p class="muted">Zet de app terug naar de beginstand: menu’s, terugblik, porties, vinkjes en verwijderde recepten.</p>
       <button class="btn danger" data-action="reset">Alles wissen</button>
     </section>`;
 }
@@ -594,13 +973,14 @@ function route() {
   const [path, qs] = hash.slice(1).split('?');
   const parts = path.split('/').filter(Boolean);
   const params = new URLSearchParams(qs || '');
-  if (parts[0] !== 'recept') ui.recipePortions = null;
-  if (params.get('w')) ui.monday = mondayOf(parseIso(params.get('w')));
+  if (parts[0] !== 'recept') ui.recipeSplit = null;
 
   switch (parts[0]) {
     case 'recept': renderRecipe(parts[1], params); break;
+    case 'plan': renderPlan(parts[1]); break;
     case 'recepten': renderRecipes(); break;
     case 'lijst': renderList(); break;
+    case 'terugblik': renderHistory(); break;
     case 'instellingen': renderSettings(); break;
     default: renderWeek();
   }
@@ -626,41 +1006,90 @@ backBtn.addEventListener('click', () => {
 
 /* ---------------------------------------------------------------- acties */
 
+function stepSplit(delta) {
+  const i = ui.recipeSplit[0] > 0 ? 0 : 1;
+  ui.recipeSplit[i] = Math.min(12, Math.max(1, ui.recipeSplit[i] + delta));
+}
+
 view.addEventListener('click', e => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const a = el.dataset.action;
+  const planWeek = state.weeks[ui.planKey];
 
   switch (a) {
-    case 'week-prev': ui.monday = addDays(ui.monday, -7); ui.openSwap = null; rerender(false); break;
-    case 'week-next': ui.monday = addDays(ui.monday, 7); ui.openSwap = null; rerender(false); break;
-    case 'week-today': ui.monday = mondayOf(new Date()); ui.openSwap = null; rerender(false); break;
+    case 'week-sel': ui.weekSel = el.dataset.sel; rerender(); break;
+    case 'day-status':
+      planWeek.days[el.dataset.day].s = el.dataset.s;
+      fillWeek(ui.planKey, false);
+      save();
+      rerender();
+      break;
+    case 'day-inc':
+    case 'day-dec': {
+      const d = planWeek.days[el.dataset.day];
+      d.n = Math.min(12, Math.max(1, d.n + (a === 'day-inc' ? 1 : -1)));
+      save();
+      rerender();
+      break;
+    }
     case 'swap-toggle': ui.openSwap = ui.openSwap === el.dataset.slot ? null : el.dataset.slot; rerender(); break;
     case 'swap-pick':
-      setOverride(ui.monday, el.dataset.slot, el.dataset.id);
+      planWeek.slots[el.dataset.slot] = el.dataset.id;
+      save();
       ui.openSwap = null;
       toast('Gerecht gewisseld');
       rerender();
       break;
-    case 'swap-reset':
-      setOverride(ui.monday, el.dataset.slot, null);
-      toast('Terug naar het standaardschema');
+    case 'reroll':
+      fillWeek(ui.planKey, true);
+      save();
+      ui.openSwap = null;
+      toast('Nieuwe gerechten gekozen');
       rerender();
       break;
-    case 'portions-dec': ui.recipePortions = Math.max(2, ui.recipePortions - 1); rerender(); break;
-    case 'portions-inc': ui.recipePortions = Math.min(12, ui.recipePortions + 1); rerender(); break;
+    case 'plan-fix':
+      planWeek.status = 'vast';
+      save();
+      ui.weekSel = ui.planKey === nextKey() ? 'next' : 'cur';
+      toast('Menu vastgelegd');
+      location.hash = '#/week';
+      break;
+    case 'plan-discard':
+      if (confirm('Dit concept weggooien?')) {
+        delete state.weeks[ui.planKey];
+        save();
+        location.hash = '#/week';
+      }
+      break;
+    case 'portions-dec': stepSplit(-1); rerender(); break;
+    case 'portions-inc': stepSplit(1); rerender(); break;
     case 'share-recipe': view.onShareRecipe && view.onShareRecipe(); break;
-    case 'share-list': shareText(shoppingText(ui.monday), 'Boodschappen'); break;
+    case 'recipe-remove':
+      if (confirm('Dit recept verwijderen? Het komt dan niet meer in nieuwe menu’s. In de terugblik blijft het staan.')) {
+        if (!state.removed.includes(el.dataset.id)) state.removed.push(el.dataset.id);
+        save();
+        toast('Recept verwijderd');
+        rerender();
+      }
+      break;
+    case 'recipe-restore':
+      state.removed = state.removed.filter(id => id !== el.dataset.id);
+      save();
+      toast('Recept teruggezet');
+      rerender();
+      break;
+    case 'share-list': shareText(shoppingText(listWeekKey()), 'Boodschappen'); break;
     case 'clear-checks':
-      if (confirm('Alle vinkjes voor deze week wissen?')) {
-        delete state.checked[iso(ui.monday)];
+      if (confirm('Alle vinkjes van deze lijst wissen?')) {
+        delete state.checked[listWeekKey()];
         save();
         rerender();
       }
       break;
     case 'extra-del': {
       e.preventDefault();
-      const wk = iso(ui.monday);
+      const wk = listWeekKey();
       state.extras[wk] = (state.extras[wk] || []).filter(x => x.id !== el.dataset.id);
       if (state.checked[wk]) delete state.checked[wk][`x:${el.dataset.id}`];
       save();
@@ -669,7 +1098,7 @@ view.addEventListener('click', e => {
     }
     case 'export': exportBackup(); break;
     case 'reset':
-      if (confirm('Weet je het zeker? Alle wissels, porties en vinkjes worden gewist.')) {
+      if (confirm('Weet je het zeker? Alle menu’s, de terugblik, porties en vinkjes worden gewist.')) {
         state = defaultState();
         save();
         toast('Alles is gewist');
@@ -683,17 +1112,12 @@ view.addEventListener('change', e => {
   const el = e.target;
   const a = el.dataset.action;
   if (a === 'check') {
-    const wk = iso(ui.monday);
+    const wk = listWeekKey();
     state.checked[wk] = state.checked[wk] || {};
     if (el.checked) state.checked[wk][el.dataset.key] = true;
     else delete state.checked[wk][el.dataset.key];
     save();
     rerender();
-  } else if (a === 'rotation') {
-    const n = Number(el.value);
-    state.rotationAnchor = iso(addDays(mondayOf(new Date()), -(n - 1) * 7));
-    save();
-    toast(`Deze week is nu rotatieweek ${n}`);
   } else if (a === 'portions') {
     const n = Math.round(Number(el.value));
     if (n >= 2 && n <= 12) {
@@ -716,7 +1140,7 @@ view.addEventListener('submit', e => {
   e.preventDefault();
   const text = form.elements.text.value.trim();
   if (!text) return;
-  const wk = iso(ui.monday);
+  const wk = listWeekKey();
   state.extras[wk] = state.extras[wk] || [];
   state.extras[wk].push({ id: Date.now().toString(36), text: text.slice(0, 80) });
   save();
