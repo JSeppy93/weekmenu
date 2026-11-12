@@ -1,6 +1,6 @@
 // Service worker: zorgt dat de app offline werkt (bijv. in de winkel zonder bereik).
 // Verhoog VERSION bij elke wijziging, dan haalt de app de nieuwe bestanden op.
-const VERSION = 'weekmenu-v8';
+const VERSION = 'weekmenu-v9';
 const FILES = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const FILES = [
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
+  './favicon-32.png',
 ];
 
 self.addEventListener('install', event => {

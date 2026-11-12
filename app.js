@@ -1,7 +1,7 @@
 'use strict';
 
 /* ================================================================
- * Weekmenu – planner voor het avondeten
+ * The Wollieway Inn – weekmenu-planner voor het avondeten
  * Alles wordt lokaal opgeslagen (localStorage). Geen server, geen account.
  *
  * Een week loopt van vrijdag t/m donderdag (boodschappen op donderdagavond).
@@ -9,7 +9,8 @@
  * gegeten hebt, rekening houdend met dagen dat je uit eet of restjes eet.
  * ================================================================ */
 
-const STORE_KEY = 'weekmenu.v1';
+const APP_NAME = 'The Wollieway Inn';
+const STORE_KEY = 'weekmenu.v1'; // niet hernoemen: hier staan de gegevens op de telefoon onder
 const RECIPE_BY_ID = Object.fromEntries(RECIPES.map(r => [r.id, r]));
 const SLOT_BY_KEY = Object.fromEntries(SLOTS.map(s => [s.key, s]));
 const DAYS = [
@@ -591,7 +592,7 @@ const backBtn = document.getElementById('back');
 
 function setChrome(title, tab, showBack) {
   titleEl.textContent = title;
-  document.title = title === 'Weekmenu' ? 'Weekmenu' : `${title} · Weekmenu`;
+  document.title = title === APP_NAME ? APP_NAME : `${title} · ${APP_NAME}`;
   backBtn.hidden = !showBack;
   document.querySelectorAll('[data-tab]').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
 }
@@ -687,7 +688,7 @@ function nextWeekCta() {
 }
 
 function renderWeek() {
-  setChrome('Weekmenu', 'week', false);
+  setChrome(APP_NAME, 'week', false);
   const ck = curKey();
   const nk = nextKey();
   const hasNext = !!fixedWeek(nk);
@@ -1241,7 +1242,7 @@ async function exportBackup() {
   const name = `weekmenu-backup-${iso(new Date())}.json`;
   const file = new File([data], name, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'Weekmenu back-up' }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    try { await navigator.share({ files: [file], title: `${APP_NAME} back-up` }); return; } catch (e) { if (e.name === 'AbortError') return; }
   }
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');

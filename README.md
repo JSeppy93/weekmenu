@@ -1,4 +1,4 @@
-# Weekmenu
+# The Wollieway Inn
 
 Web-app (PWA) voor het weekmenu van het avondeten, met een afvinkbare boodschappenlijst.
 Draait volledig op je telefoon: geen server, geen account. Gegevens staan in de browseropslag.
