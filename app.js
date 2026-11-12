@@ -447,9 +447,13 @@ function pantryItems(weekKey) {
   for (const { info } of weekDishes(state.weeks[weekKey])) {
     for (const ing of info.recipe.ingredients) {
       if (ing.c !== 'voorraad') continue;
-      if (!items.has(ing.n)) items.set(ing.n, { n: ing.n, days: [], mark: marks[ing.n] || null });
-      const it = items.get(ing.n);
-      if (!it.days.includes(info.cookDay)) it.days.push(info.cookDay);
+      // 'Zout en peper' telt als Zout én Peper, zodat elk artikel maar één keer in de check staat.
+      for (const n of ing.n.split(' en ').map(cap)) {
+        if (!items.has(n)) items.set(n, { n, days: [], mark: marks[n] || null });
+        const it = items.get(n);
+        if (!it.mark && marks[ing.n]) it.mark = marks[ing.n]; // eerdere check op de samengestelde naam blijft gelden
+        if (!it.days.includes(info.cookDay)) it.days.push(info.cookDay);
+      }
     }
   }
   return [...items.values()].sort((a, b) => a.n.localeCompare(b.n, 'nl'));
