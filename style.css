@@ -185,6 +185,28 @@ main {
 .stepper output { color: var(--text); font-weight: 700; min-width: 2ch; text-align: center; font-size: 15px; }
 .stepper .iconbtn { width: 32px; height: 32px; font-size: 17px; }
 
+/* Voorraadcheck */
+.pantry-check { padding-top: 6px; padding-bottom: 6px; margin-top: 10px; }
+.pantry-check .dayrow { border-bottom: 1px solid var(--line); padding: 9px 0; }
+.pantry-check .dayrow:last-child { border-bottom: 0; }
+.seg button.on.buy { background: var(--accent); color: #fff; }
+.pantry-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  background: var(--surface-2);
+}
+.pantry-note.todo { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--text); font-size: 14px; padding: 10px 12px; }
+.pantry-note b { display: block; }
+.pantry-note .arrow { white-space: nowrap; color: var(--accent); }
+
 .slot.off { background: none; border-style: dashed; cursor: pointer; }
 .offtext { color: var(--muted); font-size: 15px; }
 .cta p, .empty p { margin: 0 0 12px; }

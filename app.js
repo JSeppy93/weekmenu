@@ -73,6 +73,7 @@ function defaultState() {
     checked: {},  // { '2026-11-13': { 'Ui|st': true } }
     extras: {},   // { '2026-11-13': [{ id, text }] }
     removed: [],  // id's van recepten die je niet meer wilt
+    pantry: {},   // voorraadcheck per week: { '2026-11-13': { 'Olijfolie': 'heb' | 'koop' } }
   };
 }
 
@@ -127,6 +128,7 @@ function normalizeState(s) {
     checked: s.checked || {},
     extras: s.extras || {},
     removed: Array.isArray(s.removed) ? s.removed.filter(id => typeof id === 'string') : [],
+    pantry: s.pantry && typeof s.pantry === 'object' ? s.pantry : {},
   };
 }
 
@@ -431,12 +433,34 @@ function ingName(ing) {
 
 /* ---------------------------------------------------------------- boodschappenlijst */
 
+// Indeling van de winkellijst. Voorraad (olie, kruiden) staat er alleen op als je bij de check 'Kopen' koos.
+const LIST_CATS = [
+  ...CATEGORIES.filter(c => c.key !== 'voorraad' && c.key !== 'eigen'),
+  { key: 'aanvullen', label: 'Voorraad aanvullen' },
+];
+
+// Voorraadartikelen die de gerechten van deze week nodig hebben, met de status uit de check.
+function pantryItems(weekKey) {
+  const marks = state.pantry[weekKey] || {};
+  const items = new Map();
+  for (const { info } of weekDishes(state.weeks[weekKey])) {
+    for (const ing of info.recipe.ingredients) {
+      if (ing.c !== 'voorraad') continue;
+      if (!items.has(ing.n)) items.set(ing.n, { n: ing.n, days: [], mark: marks[ing.n] || null });
+      const it = items.get(ing.n);
+      if (!it.days.includes(info.cookDay)) it.days.push(info.cookDay);
+    }
+  }
+  return [...items.values()].sort((a, b) => a.n.localeCompare(b.n, 'nl'));
+}
+
 function shoppingList(weekKey) {
   const week = state.weeks[weekKey];
   const items = new Map();
   for (const { slot, info } of weekDishes(week)) {
     const ctx = makeCtx(slot, info.split, info.single);
     for (const ing of info.recipe.ingredients) {
+      if (ing.c === 'voorraad') continue;
       const q = scaledQty(ing, ctx.portions, ctx.gv);
       if (q <= 0) continue;
       const key = `${ing.n}|${ing.u}`;
@@ -449,6 +473,9 @@ function shoppingList(weekKey) {
     }
   }
   const list = [...items.values()].map(it => ({ ...it, q: shopQty(it.q, it.u) }));
+  for (const p of pantryItems(weekKey)) {
+    if (p.mark === 'koop') list.push({ key: `v:${p.n}`, n: p.n, c: 'aanvullen', days: p.days });
+  }
   for (const x of state.extras[weekKey] || []) {
     list.push({ key: `x:${x.id}`, n: x.text, c: 'eigen', extraId: x.id });
   }
@@ -460,7 +487,7 @@ function shoppingText(weekKey) {
   const list = shoppingList(weekKey);
   const checked = state.checked[weekKey] || {};
   const lines = [`*Boodschappen ${weekLabel(weekKey)}*`];
-  for (const cat of CATEGORIES) {
+  for (const cat of [...LIST_CATS, { key: 'eigen', label: 'Eigen items' }]) {
     const items = list.filter(i => i.c === cat.key && !checked[i.key]);
     if (!items.length) continue;
     lines.push('', `*${cat.label}*`);
@@ -867,7 +894,13 @@ function renderList() {
   }
   const list = shoppingList(wk);
   const checked = state.checked[wk] || {};
-  const countable = list.filter(i => i.c !== 'voorraad');
+  const countable = list;
+  const pantry = pantryItems(wk);
+  const unchecked = pantry.filter(p => !p.mark).length;
+  const toBuy = pantry.filter(p => p.mark === 'koop').length;
+  const pantryNote = !pantry.length ? '' : unchecked
+    ? `<a class="pantry-note todo" href="#/voorraad/${wk}"><span><b>Voorraad nog niet gecheckt</b>${unchecked} van ${pantry.length} artikelen (olie, kruiden). Doe dit thuis.</span><span class="arrow">›</span></a>`
+    : `<a class="pantry-note" href="#/voorraad/${wk}"><span>Voorraad gecheckt · ${toBuy ? `${toBuy} op de lijst` : 'niets nodig'}</span><span class="arrow">Aanpassen ›</span></a>`;
   const done = countable.filter(i => checked[i.key]).length;
   const pct = countable.length ? Math.round(done / countable.length * 100) : 0;
 
@@ -881,7 +914,7 @@ function renderList() {
       </label>
     </li>`;
 
-  const groups = CATEGORIES.filter(c => c.key !== 'voorraad' && c.key !== 'eigen').map(cat => {
+  const groups = LIST_CATS.map(cat => {
     const items = list.filter(i => i.c === cat.key);
     if (!items.length) return '';
     const open = items.filter(i => !checked[i.key]).length;
@@ -893,9 +926,8 @@ function renderList() {
   }).join('');
 
   const extras = list.filter(i => i.c === 'eigen');
-  const pantry = list.filter(i => i.c === 'voorraad');
 
-  view.innerHTML = weekHead(wk) + `
+  view.innerHTML = weekHead(wk) + pantryNote + `
     <div class="progress"><div style="width:${pct}%"></div></div>
     <div class="progress-label">${done} van ${countable.length} afgevinkt</div>
     ${groups}
@@ -907,16 +939,33 @@ function renderList() {
         <button class="btn" type="submit">Toevoegen</button>
       </form>
     </section>
-    <section class="shop-group">
-      <details class="pantry">
-        <summary>Check je voorraad <small>· olie, kruiden, specerijen (${pantry.length})</small></summary>
-        <ul class="shop-items">${pantry.map(itemHtml).join('')}</ul>
-      </details>
-    </section>
     <div class="btnrow share">
       <button class="btn" data-action="share-list">Lijst delen…</button>
       <button class="btn danger" data-action="clear-checks">Vinkjes wissen</button>
     </div>`;
+}
+
+// Voorraadcheck: thuis per artikel aangeven of je het hebt of moet kopen. Niets staat vooraf ingevuld.
+function renderPantry(weekKey) {
+  if (!fixedWeek(weekKey)) { location.replace('#/lijst'); return; }
+  ui.pantryKey = weekKey;
+  setChrome('Voorraad checken', 'lijst', true);
+  const items = pantryItems(weekKey);
+  const open = items.filter(p => !p.mark).length;
+  view.innerHTML = weekHead(weekKey) + `
+    <p class="muted">Kijk thuis of je dit in huis hebt. Alleen wat je op Kopen zet, komt op de boodschappenlijst.</p>
+    <div class="progress-label">${open ? `Nog ${open} van ${items.length} te checken` : `Alle ${items.length} gecheckt`}</div>
+    <section class="card pantry-check">
+      ${items.map(p => `
+        <div class="dayrow">
+          <div class="dayname"><b>${esc(p.n)}</b><span>${p.days.join(' · ')}</span></div>
+          <div class="seg" role="group" aria-label="${esc(p.n)}">
+            <button data-action="pantry-mark" data-n="${esc(p.n)}" data-mark="heb" class="${p.mark === 'heb' ? 'on' : ''}" aria-pressed="${p.mark === 'heb'}">Heb ik</button>
+            <button data-action="pantry-mark" data-n="${esc(p.n)}" data-mark="koop" class="${p.mark === 'koop' ? 'on buy' : ''}" aria-pressed="${p.mark === 'koop'}">Kopen</button>
+          </div>
+        </div>`).join('') || '<p class="muted">Deze week is er niets uit de voorraad nodig.</p>'}
+    </section>
+    <a class="btn primary block" href="#/lijst">Naar de boodschappenlijst</a>`;
 }
 
 function renderHistory() {
@@ -994,6 +1043,7 @@ function route() {
     case 'plan': renderPlan(parts[1]); break;
     case 'recepten': renderRecipes(); break;
     case 'lijst': renderList(); break;
+    case 'voorraad': renderPantry(parts[1]); break;
     case 'terugblik': renderHistory(); break;
     case 'instellingen': renderSettings(); break;
     default: renderWeek();
@@ -1080,8 +1130,17 @@ view.addEventListener('click', e => {
       save();
       ui.weekSel = ui.planKey === nextKey() ? 'next' : 'cur';
       toast('Menu vastgelegd');
-      location.hash = '#/week';
+      location.hash = `#/voorraad/${ui.planKey}`;
       break;
+    case 'pantry-mark': {
+      const marks = state.pantry[ui.pantryKey] || (state.pantry[ui.pantryKey] = {});
+      if (marks[el.dataset.n] === el.dataset.mark) delete marks[el.dataset.n]; // nog een keer tikken = weer leeg
+      else marks[el.dataset.n] = el.dataset.mark;
+      if (el.dataset.mark === 'heb' && state.checked[ui.pantryKey]) delete state.checked[ui.pantryKey][`v:${el.dataset.n}`];
+      save();
+      rerender();
+      break;
+    }
     case 'plan-discard':
       if (confirm('Dit concept weggooien?')) {
         delete state.weeks[ui.planKey];
