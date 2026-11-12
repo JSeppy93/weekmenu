@@ -134,7 +134,24 @@ main {
 .gear.active { color: var(--accent); }
 
 /* Weekkop en weekkeuze */
-.weekhead { text-align: center; margin-bottom: 14px; }
+.weekhead { position: relative; text-align: center; margin-bottom: 14px; }
+.weekhead .edit {
+  position: absolute;
+  right: 0; top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  color: var(--muted);
+}
+.weekhead .edit svg {
+  width: 22px; height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .weekhead strong { display: block; font-size: 17px; }
 .weekhead span { font-size: 13px; color: var(--muted); }
 

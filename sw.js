@@ -1,6 +1,6 @@
 // Service worker: zorgt dat de app offline werkt (bijv. in de winkel zonder bereik).
 // Verhoog VERSION bij elke wijziging, dan haalt de app de nieuwe bestanden op.
-const VERSION = 'weekmenu-v7';
+const VERSION = 'weekmenu-v8';
 const FILES = [
   './',
   './index.html',

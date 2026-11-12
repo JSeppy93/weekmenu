@@ -600,8 +600,13 @@ function relLabel(weekKey) {
   return weekKey === curKey() ? 'Deze week' : weekKey === nextKey() ? 'Volgende week' : 'Week';
 }
 
-function weekHead(weekKey, extra) {
-  return `<div class="weekhead"><strong>${relLabel(weekKey)}</strong><span>${weekLabel(weekKey)}${extra ? ` · ${extra}` : ''}</span></div>`;
+// Met editHref erbij: potloodje rechts om het menu van die week aan te passen.
+function weekHead(weekKey, extra, editHref) {
+  const edit = editHref ? `
+    <a class="edit" href="${editHref}" aria-label="Menu aanpassen" title="Menu aanpassen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19.5 8.5l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
+    </a>` : '';
+  return `<div class="weekhead"><strong>${relLabel(weekKey)}</strong><span>${weekLabel(weekKey)}${extra ? ` · ${extra}` : ''}</span>${edit}</div>`;
 }
 
 // Kaart voor één kookblok. Met edit erbij: wisselknop (in het planscherm).
@@ -702,11 +707,7 @@ function renderWeek() {
 
   let body;
   if (week) {
-    body = SLOTS.map(slot => slotCard(sel, week, slot, false)).join('') + `
-      <div class="btnrow">
-        ${listWeekKey() === sel ? '<a class="btn primary" href="#/lijst">Boodschappenlijst</a>' : ''}
-        <a class="btn" href="#/plan/${sel}">Menu aanpassen</a>
-      </div>`;
+    body = SLOTS.map(slot => slotCard(sel, week, slot, false)).join('');
   } else {
     const draft = state.weeks[sel];
     body = `
@@ -715,7 +716,7 @@ function renderWeek() {
         <a class="btn block" href="#/plan/${sel}">${draft ? 'Verder met het concept' : 'Menu maken voor deze week'}</a>
       </section>`;
   }
-  view.innerHTML = hero + switcher + weekHead(sel) + body + cta;
+  view.innerHTML = hero + switcher + weekHead(sel, '', week ? `#/plan/${sel}` : '') + body + cta;
 }
 
 function renderPlan(weekKey) {
